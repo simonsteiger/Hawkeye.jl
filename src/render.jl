@@ -67,3 +67,95 @@ function ref(reg::Registry, keys::AbstractString...)
     all_same_kind = length(Set(b[1] for b in order)) == 1
     return all_same_kind ? join(parts, ", ", " and ") : join(parts, ", ")
 end
+
+"Full caption for the docx or the figure caption slot, with a sentence-initial prefix."
+function caption(reg::Registry, key::AbstractString)
+    e = _entry(reg, key)
+    prefix = uppercasefirst(_bucket_label(kind(e), location(e), false))
+    return "$prefix $(number(reg, key)): $(e.caption)"
+end
+
+"Abbreviation footer. Empty string for figures."
+footer(reg::Registry, key::AbstractString) = _footer(_entry(reg, key))
+_footer(e::AbstractTable) = e.footer
+_footer(::AbstractFigure) = ""
+
+# Keys are matched on their string form, so Symbol-keyed dictionaries work and lookup agrees with
+# how `shape` and `leafpaths` stringify keys.
+function _child(d::AbstractDict, k::AbstractString)
+    for (kk, vv) in d
+        string(kk) == k && return (vv, true)
+    end
+    return (nothing, false)
+end
+
+_keylist(d::AbstractDict) = join(sort!([repr(string(k)) for k in keys(d)]), ", ")
+
+"""
+    val(reg, name, path...)
+
+Read a registered value by its key path. Varargs rather than a delimited string, so no key
+character is reserved.
+
+```julia
+val(reg, "descr", "n_0")
+val(reg, "props", "Moderate", "decomposition", "das28_remission")
+```
+
+Throws `ArgumentError` naming the level that failed and the valid keys at that level. Routing
+value access through this function is what lets the value check find unknown paths statically and
+report registered leaves that prose never reads.
+"""
+function val(reg::Registry, name::AbstractString, path::AbstractString...)
+    haskey(reg.valindex, name) || throw(
+        ArgumentError(
+            "unknown value set: \"$name\"; registered: " *
+            join(sort!([repr(k) for k in keys(reg.valindex)]), ", "),
+        ),
+    )
+    cur = reg.valindex[name].dict
+    for (i, k) in enumerate(path)
+        cur isa AbstractDict || throw(
+            ArgumentError(
+                "val(\"$name\", $(join(map(repr, path), ", "))): " *
+                "\"$(path[i-1])\" is a leaf of type $(typeof(cur)); cannot descend to \"$k\"",
+            ),
+        )
+        child, ok = _child(cur, k)
+        ok || throw(
+            ArgumentError(
+                "val(\"$name\", $(join(map(repr, path), ", "))): " *
+                "no key \"$k\" at level $i; valid keys there: $(_keylist(cur))",
+            ),
+        )
+        cur = child
+    end
+    return cur
+end
+
+_heading(loc::Symbol) =
+    loc === :main ? "## Main article figures" : "## Supplementary figures"
+
+"""
+    figures_md(reg)
+
+The entire figures document body as markdown: a heading at each location boundary, a pagebreak
+between consecutive figures, one image per figure entry, in registry order.
+
+Emit it from an `#| output: asis` block. `{{< pagebreak >}}` is a Quarto shortcode and must reach
+pandoc unescaped.
+"""
+function figures_md(reg::Registry)
+    blocks = String[]
+    loc = nothing
+    for e in reg.entries
+        e isa AbstractFigure || continue
+        isempty(blocks) || push!(blocks, "{{< pagebreak >}}")
+        if location(e) !== loc
+            loc = location(e)
+            push!(blocks, _heading(loc))
+        end
+        push!(blocks, "![$(caption(reg, e.key))]($(e.path))")
+    end
+    return join(blocks, "\n\n") * "\n"
+end
