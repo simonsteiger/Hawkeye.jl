@@ -24,5 +24,6 @@ include("scan.jl")
 include("refs.jl")
 include("values.jl")
 include("bib.jl")
+include("revisions.jl")
 
 end # module
