@@ -8,4 +8,6 @@ using Test
     include("render.jl")
     include("bind.jl")
     include("checks_scan.jl")
+    include("fixtures.jl")
+    include("checks_refs.jl")
 end

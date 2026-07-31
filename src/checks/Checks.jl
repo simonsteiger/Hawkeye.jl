@@ -21,5 +21,6 @@ using ..Hawkeye:
     leafpaths
 
 include("scan.jl")
+include("refs.jl")
 
 end # module
