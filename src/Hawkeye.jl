@@ -4,6 +4,7 @@ include("entries.jl")
 include("values.jl")
 include("registry.jl")
 include("render.jl")
+include("bind.jl")
 
 export AbstractEntry, AbstractTable, AbstractFigure
 export MainTable, SuppTable, MainFigure, SuppFigure

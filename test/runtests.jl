@@ -6,4 +6,5 @@ using Test
     include("values.jl")
     include("registry.jl")
     include("render.jl")
+    include("bind.jl")
 end
