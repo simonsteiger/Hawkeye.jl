@@ -29,6 +29,8 @@ end
     @test B.citations("[@smith_2020a:b]") == [("smith_2020a:b", 1)]
     # line numbers are tracked
     @test B.citations("a\nb [@x]") == [("x", 2)]
+    # a trailing sentence period is punctuation, not part of the key (matches pandoc)
+    @test B.citations("Shown by @smith2020.") == [("smith2020", 1)]
 end
 
 @testset "code blocks are not citations" begin
@@ -68,4 +70,11 @@ end
     # commented-out citations do not count
     rep2 = B.analyze("@article{a,}", [src("<!-- [@a] -->")])
     @test rep2.uncited == ["a"]
+
+    # a missing key cited repeatedly is reported once, keeping the first occurrence's location
+    rep3 = B.analyze(
+        "@article{a,}",
+        [src("First [@ghost2000] and again [@ghost2000] and once more [@ghost2000].")],
+    )
+    @test rep3.missing_keys == [("ghost2000", "manuscript.qmd", 1)]
 end

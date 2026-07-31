@@ -12,8 +12,6 @@ module Revisions
 
 using PrettyTables
 
-using ..Checks: Source
-
 # hyphen/en-dash/em-dash/figure-dash/minus variants -> '-'
 const _DASHES = Set{Char}(['‐', '‑', '‒', '–', '—', '―', '−'])
 const _DQUOTES = Set{Char}([

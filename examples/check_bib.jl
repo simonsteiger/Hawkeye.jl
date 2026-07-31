@@ -14,6 +14,8 @@ const BIB = joinpath(ROOT, "article", "manuscript", "bibliography.bib")
 const QMDS = [joinpath(ROOT, "article", "manuscript", "manuscript.qmd")]
 
 sources = [Source(p, read(p, String)) for p in QMDS if isfile(p)]
+isempty(sources) && error("no manuscript sources found")
+
 report = Bib.analyze(read(BIB, String), sources)
 print(Bib.report_string(report))
 

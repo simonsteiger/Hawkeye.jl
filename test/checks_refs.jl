@@ -25,6 +25,14 @@ Figures \$(ref("fig_descr")) and \$(ref("fig_high")).
     @test occursin("pop1", R.report_string(rep))
 end
 
+@testset "pending does not gate has_findings" begin
+    # everything referenced and in order, pop2 pending; figdir=nothing disables the unrelated
+    # missing-figure check so only the pending status is in play
+    rep = R.analyze(CHECKREG, [src(CLEAN)]; figdir=nothing)
+    @test Dict(r.key => r.status for r in rep.rows)["pop2"] == "PENDING (no body)"
+    @test !R.has_findings(rep)
+end
+
 @testset "unreferenced and order" begin
     rep = R.analyze(CHECKREG, [src("Only \$(ref(\"pop1\")).")]; figdir="")
     statuses = Dict(r.key => r.status for r in rep.rows)

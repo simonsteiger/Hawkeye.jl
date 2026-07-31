@@ -9,17 +9,6 @@ module Checks
 
 using PrettyTables
 
-using ..Hawkeye:
-    Hawkeye,
-    Registry,
-    AbstractEntry,
-    AbstractFigure,
-    ValueSet,
-    bucket,
-    number,
-    entry_label,
-    leafpaths
-
 include("scan.jl")
 include("refs.jl")
 include("values.jl")

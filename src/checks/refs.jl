@@ -131,9 +131,14 @@ function analyze(
     return Report(rows, unknown, unparsed, literals, adjacent, missing_figures)
 end
 
-"Whether the report contains anything worth acting on. Drives the caller's exit code."
+"""
+Whether the report contains anything worth acting on. Drives the caller's exit code.
+
+Pending entries (`"PENDING (no body)"`) still appear in `rows` for visibility, but do not gate the
+exit code — see the `Registry` docstring.
+"""
 has_findings(r::Report) =
-    any(row -> row.status != "ok", r.rows) ||
+    any(row -> row.status != "ok" && row.status != "PENDING (no body)", r.rows) ||
     !isempty(r.unknown) ||
     !isempty(r.unparsed) ||
     !isempty(r.literals) ||

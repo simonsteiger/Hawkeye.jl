@@ -40,8 +40,10 @@ bib_keys(bibtext::AbstractString) =
     [String(m.captures[1]) for m in eachmatch(_BIB_ENTRY, bibtext)]
 
 # A citation key: optional suppressed-author dash, then the pandoc-legal key character set. The
-# lookbehind keeps email addresses and `x@y` expressions from matching.
-const _CITE = r"(?<![A-Za-z0-9_])-?@([A-Za-z][A-Za-z0-9_:.#$%&+?<>~/-]*)"
+# lookbehind keeps email addresses and `x@y` expressions from matching. The key must end on an
+# alphanumeric/underscore character — pandoc treats a trailing `.` (or other internal punctuation)
+# as sentence punctuation, not part of the key, so it must not be swallowed here either.
+const _CITE = r"(?<![A-Za-z0-9_])-?@([A-Za-z](?:[A-Za-z0-9_:.#$%&+?<>~/-]*[A-Za-z0-9_])?)"
 
 """
     citations(masked) -> Vector{Tuple{String,Int}}
@@ -64,6 +66,8 @@ end
 Check citations in `sources` against the entries declared in `bibtext`.
 
 Takes the `.bib` text rather than a path, so the check stays pure and testable without files.
+`missing_keys` is deduplicated by key, keeping the first occurrence's file and line — repeat
+citations of the same undefined key produce one report line, not one per occurrence.
 """
 function analyze(bibtext::AbstractString, sources::AbstractVector{Source})
     keys_in_bib = bib_keys(bibtext)
@@ -78,12 +82,14 @@ function analyze(bibtext::AbstractString, sources::AbstractVector{Source})
     counts = Dict{String,Int}()
     first_at = Dict{String,Tuple{String,Int}}()
     missing_keys = Tuple{String,String,Int}[]
+    missing_seen = Set{String}()
     for (k, f, l) in cites
         if k in known
             counts[k] = get(counts, k, 0) + 1
             haskey(first_at, k) || (first_at[k] = (f, l))
-        else
+        elseif k ∉ missing_seen
             push!(missing_keys, (k, f, l))
+            push!(missing_seen, k)
         end
     end
 
