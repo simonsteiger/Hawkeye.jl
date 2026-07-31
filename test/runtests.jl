@@ -10,4 +10,5 @@ using Test
     include("checks_scan.jl")
     include("fixtures.jl")
     include("checks_refs.jl")
+    include("checks_values.jl")
 end
