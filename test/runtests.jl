@@ -5,4 +5,5 @@ using Test
     include("entries.jl")
     include("values.jl")
     include("registry.jl")
+    include("render.jl")
 end
