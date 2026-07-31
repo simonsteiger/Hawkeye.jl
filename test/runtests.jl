@@ -2,5 +2,5 @@ using Hawkeye
 using Test
 
 @testset "Hawkeye.jl" begin
-    # Write your tests here.
+    include("entries.jl")
 end
