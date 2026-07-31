@@ -7,4 +7,5 @@ using Test
     include("registry.jl")
     include("render.jl")
     include("bind.jl")
+    include("checks_scan.jl")
 end
