@@ -4,4 +4,5 @@ using Test
 @testset "Hawkeye.jl" begin
     include("entries.jl")
     include("values.jl")
+    include("registry.jl")
 end
