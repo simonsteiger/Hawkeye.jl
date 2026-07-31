@@ -11,4 +11,5 @@ using Test
     include("fixtures.jl")
     include("checks_refs.jl")
     include("checks_values.jl")
+    include("checks_bib.jl")
 end

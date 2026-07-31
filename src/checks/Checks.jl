@@ -23,5 +23,6 @@ using ..Hawkeye:
 include("scan.jl")
 include("refs.jl")
 include("values.jl")
+include("bib.jl")
 
 end # module
