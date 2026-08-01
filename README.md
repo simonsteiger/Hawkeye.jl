@@ -39,7 +39,7 @@ order. Reorder `ENTRIES` and every number follows.
 ```markdown
 Patients were followed for six months ($(ref("pop1"))).
 Definitions appear in $(ref("def_rem", "fig_descr")).
-The cohort included $(val("descr", "n_0")) patients.
+The cohort included $(val("descr", ["n_0"])) patients.
 ```
 
 `ref` groups its arguments by bucket, sorts them, collapses runs of three or more to a range, and
@@ -49,15 +49,23 @@ as `ADJACENT`.
 
 ## Inspecting a value set
 
-Deeply nested result dictionaries are opaque when writing prose. `structure` shows the key
-hierarchy with leaf types, grouping sibling subtrees that share a shape:
+Deeply nested result dictionaries are opaque when writing prose. `structure` draws the key
+hierarchy as a tree, grouping sibling subtrees that share a shape:
 
 ```julia
 julia> ManuscriptRefs.REG.values[1]
-descr: 4 leaves
-  "High", "Moderate"
-    "das28_remission", "sdai_remission" :: @NamedTuple{e::Int64, n::Int64, p::String}
+descr · 4 leaves
+└─ High, Moderate
+   └─ das28_remission, sdai_remission
+      @NamedTuple{e::Int64, n::Int64, p::String}
 ```
+
+Glyphs, the leaf count and the leaf types are dimmed, leaving the keys — which is what a `val`
+path is written from — as the only foreground text. The four faces are `hawkeye_name`,
+`hawkeye_count`, `hawkeye_tree` and `hawkeye_type`, restylable from a `faces.toml`.
+
+Value dictionary keys must be `String` at every depth; a `ValueSet` built from a dictionary keyed
+otherwise throws, naming the offending key and the path to it.
 
 `vs.dict` returns the raw dictionary with its ordinary display.
 

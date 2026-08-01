@@ -3,7 +3,7 @@
 #
 # Prose then reads:
 #   $(ref("pop1"))                    -> "Table 1"
-#   $(val("descr", "n_0"))            -> 872
+#   $(val("descr", ["n_0"]))          -> 872
 module ManuscriptRefs
 
 using Hawkeye
@@ -23,7 +23,7 @@ const ENTRIES = AbstractEntry[
     SuppFigure("fig_high", "Proportions in the DAS28 High stratum.", "figures/high.svg"),
 ]
 
-# Load whatever your analysis wrote. Any AbstractDict works; keys may be String or Symbol.
+# Load whatever your analysis wrote. Any AbstractDict works; keys must be String at every depth.
 const VALUES = ValueSet[
     ValueSet("descr", Dict("n_0" => 872, "n_6" => 459)),
     ValueSet("props", Dict("Moderate" => Dict("das28_remission" => (e=5, n=10, p="50%")))),
