@@ -82,8 +82,6 @@ function leafpaths(d::AbstractDict, prefix::Vector{String}=String[])
     return out
 end
 
-_fmtkeys(ks) = join(("\"$k\"" for k in ks), ", ")
-
 # Bare by default. A comma is the correctness case: grouped keys are comma-joined, so an unquoted
 # key containing one would read as two keys.
 _fmtkey(k::AbstractString) =
@@ -95,43 +93,104 @@ function _fmttype(T)
     return length(s) > 50 ? string(first(s, 49), '…') : s
 end
 
-# Group this branch's children by identical shape, print each distinct shape once. Grouping is
+# Greedy wrap over indivisible tokens. `seps[i]` precedes `tokens[i]`; `seps[1]` is unused.
+# Returns the token indices belonging to each line.
+function _wraplines(
+    tokens::Vector{Pair{String,Union{Nothing,Symbol}}},
+    seps::Vector{String},
+    avail::Int,
+)
+    lines = [[1]]
+    w = textwidth(first(tokens[1]))
+    for i in 2:length(tokens)
+        add = textwidth(seps[i]) + textwidth(first(tokens[i]))
+        if w + add <= avail
+            push!(lines[end], i)
+            w += add
+        else
+            push!(lines, [i])
+            w = textwidth(first(tokens[i]))
+        end
+    end
+    return lines
+end
+
+_faced(text::AbstractString, ::Nothing) = text
+_faced(text::AbstractString, f::Symbol) = styled"{$f:$text}"
+
+function _emit!(out, gutter, connector, contprefix, tokens, seps, width)
+    avail = max(width - textwidth(gutter) - textwidth(connector), 1)
+    for (j, idxs) in enumerate(_wraplines(tokens, seps, avail))
+        prefix = j == 1 ? gutter * connector : contprefix
+        pieces = Any[styled"{hawkeye_tree:$prefix}"]
+        for (n, i) in enumerate(idxs)
+            n > 1 && push!(pieces, seps[i])
+            push!(pieces, _faced(first(tokens[i]), last(tokens[i])))
+        end
+        push!(out, annotatedstring(pieces...))
+    end
+    return nothing
+end
+
+# Group this branch's children by identical shape and print each distinct shape once. Grouping is
 # what keeps a divergent dictionary honest: a union of keys per level would read as though every
 # branch had every key.
-function _print_shape(io::IO, b::Branch, indent::Int)
+function _walk!(out::Vector{AbstractString}, b::Branch, gutter::AbstractString, width::Int)
     groups = Dict{Shape,Vector{String}}()
     order = Shape[]
     for (k, s) in b.children
         haskey(groups, s) || push!(order, s)
         push!(get!(groups, s, String[]), k)
     end
-    pad = "  "^indent
-    for s in order
+    for (i, s) in enumerate(order)
         ks = groups[s]
-        if s isa Leaf
-            println(io, pad, _fmtkeys(ks), " :: ", s.type)
-        else
-            println(io, pad, _fmtkeys(ks))
-            _print_shape(io, s::Branch, indent + 1)
+        islast = i == length(order)
+        connector = islast ? "└─ " : "├─ "
+        # A wrapped line must keep the vertical bar, or the sibling chain breaks wherever a wrap
+        # happens to fall. This prefix is exactly as wide as `gutter * connector`.
+        contprefix = gutter * (islast ? "   " : "│  ")
+        tokens = Pair{String,Union{Nothing,Symbol}}[]
+        seps = String[]
+        for (j, k) in enumerate(ks)
+            text = j < length(ks) ? _fmtkey(k) * "," : _fmtkey(k)
+            push!(tokens, text => nothing)
+            push!(seps, j == 1 ? "" : " ")
         end
+        if s isa Leaf
+            push!(tokens, _fmttype(s.type) => :hawkeye_type)
+            push!(seps, "  ")
+        end
+        _emit!(out, gutter, connector, contprefix, tokens, seps, width)
+        s isa Branch && _walk!(out, s, contprefix, width)
     end
-    return nothing
+    return out
 end
 
 """
-    structure(vs) -> String
+    structure(vs, io = devnull) -> AnnotatedString
 
-The key hierarchy of a value set, one line per level, with the leaf type appended to any line
-whose keys are leaves. Sibling subtrees sharing a shape are listed together; subtrees that differ
-are printed separately, so divergent branches are visible rather than merged.
+The key hierarchy of a value set drawn as a tree, with the leaf type after each leaf node. Sibling
+subtrees sharing a shape are listed on one node; subtrees that differ are drawn separately, so
+divergent branches are visible rather than merged.
+
+Everything structural — glyphs, leaf count, leaf types — is dimmed, leaving the keys as the only
+default-weight text, since the keys are what a `val` path is written from. `io` supplies the
+wrapping width; without it the output is 80 columns wide.
 """
-function structure(vs::ValueSet)
-    io = IOBuffer()
-    println(io, vs.name, ": ", length(leafpaths(vs.dict)), " leaves")
-    _print_shape(io, shape(vs.dict)::Branch, 1)
-    return String(take!(io))
+function structure(vs::ValueSet, io::IO=devnull)
+    width = displaysize(io)[2]
+    n = length(leafpaths(vs.dict))
+    unit = n == 1 ? "leaf" : "leaves"
+    tail = "· $n $unit"
+    out = AbstractString[annotatedstring(
+        styled"{hawkeye_name:$(vs.name)}",
+        " ",
+        styled"{hawkeye_count:$tail}",
+    )]
+    _walk!(out, shape(vs.dict)::Branch, "", width)
+    return annotatedstring(join(out, "\n"), "\n")
 end
 
-Base.show(io::IO, ::MIME"text/plain", vs::ValueSet) = print(io, structure(vs))
+Base.show(io::IO, ::MIME"text/plain", vs::ValueSet) = print(io, structure(vs, io))
 Base.show(io::IO, vs::ValueSet) =
     print(io, "ValueSet(", repr(vs.name), ", ", length(leafpaths(vs.dict)), " leaves)")

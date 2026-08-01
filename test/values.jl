@@ -25,41 +25,123 @@ end
     @test Hawkeye.leafpaths(Dict("x" => Dict{String,Any}())) == Vector{String}[]
 end
 
-@testset "structure" begin
-    # homogeneous: both branches share a shape, so keys collapse onto one line
+# Rendering is tested through `structure` at a fixed width, so assertions are exact strings
+# rather than `occursin` — glyph placement is the thing under test.
+render(vs; width=80) =
+    String(structure(vs, IOContext(devnull, :displaysize => (24, width))))
+
+@testset "structure header" begin
+    @test render(ValueSet("v", Dict("a" => 1))) == "v · 1 leaf\n└─ a  Int64\n"
+    # the noun agrees with the count
+    @test startswith(render(ValueSet("v", Dict("a" => 1, "b" => 2))), "v · 2 leaves\n")
+    # an empty set renders the header alone
+    @test render(ValueSet("v", Dict{String,Any}())) == "v · 0 leaves\n"
+end
+
+@testset "structure grouping and glyphs" begin
+    # homogeneous: both branches share a shape, so their keys collapse onto one node
     homo = ValueSet(
         "props",
         Dict("High" => Dict("a" => 1, "b" => 2), "Moderate" => Dict("a" => 3, "b" => 4)),
     )
-    s = structure(homo)
-    @test occursin("props: 4 leaves", s)
-    @test occursin("\"High\", \"Moderate\"", s)
-    @test occursin("\"a\", \"b\" :: Int64", s)
-    # one grouped line per level, not one per branch
-    @test count(l -> occursin("\"a\", \"b\"", l), split(s, '\n')) == 1
+    @test render(homo) == """
+        props · 4 leaves
+        └─ High, Moderate
+           └─ a, b  Int64
+        """
 
-    # divergent: branches differ, so each shape prints separately
+    # divergent: branches differ, so each shape prints as its own node and they are not merged
     hetero = ValueSet(
         "mixed",
         Dict("das28" => Dict("a" => 1), "decomposition" => Dict("c" => 1.0)),
     )
-    h = structure(hetero)
-    @test occursin("\"das28\"", h)
-    @test occursin("\"decomposition\"", h)
-    @test occursin("\"a\" :: Int64", h)
-    @test occursin("\"c\" :: Float64", h)
-    # the two branches are NOT merged onto one line
-    @test !occursin("\"das28\", \"decomposition\"", h)
+    h = render(hetero)
+    @test h == """
+        mixed · 2 leaves
+        ├─ das28
+        │  └─ a  Int64
+        └─ decomposition
+           └─ c  Float64
+        """
+    @test !occursin("das28, decomposition", h)
 
-    # leaf types are reported, which is the point of the whole function
-    nt = ValueSet("v", Dict("k" => (e=1, n=2, p="3%")))
-    @test occursin("::", structure(nt))
-    @test occursin("NamedTuple", structure(nt))
+    # a non-last node's subtree keeps the ancestor's vertical bar
+    mixed = ValueSet("m", Dict("A" => Dict("x" => 1), "z" => 2.0))
+    @test render(mixed) == """
+        m · 2 leaves
+        ├─ A
+        │  └─ x  Int64
+        └─ z  Float64
+        """
+end
+
+@testset "structure wrapping" begin
+    keys5 = [
+        "das28_remission",
+        "sdai_remission",
+        "cdai_remission",
+        "boolean_remission",
+        "das28crp_remission",
+    ]
+    vs = ValueSet("descr", Dict("High" => Dict(k => 1 for k in keys5), "z" => 2.0))
+    @test render(vs) == """
+        descr · 6 leaves
+        ├─ High
+        │  └─ boolean_remission, cdai_remission, das28_remission, das28crp_remission,
+        │     sdai_remission  Int64
+        └─ z  Float64
+        """
+
+    # a single key wider than the line overflows rather than being truncated
+    wide = ValueSet("wide", Dict("x"^70 => 1))
+    @test render(wide) == "wide · 1 leaf\n└─ " * "x"^70 * "  Int64\n"
+
+    # the type is the last wrap token, so it moves to a continuation line rather than overflowing.
+    # The key must be long enough to push a 50-column type past the line: 3 + 30 + 2 + 50 = 85.
+    nt = ValueSet(
+        "v",
+        Dict("das28_remission_by_treatment_x" => (aaaa=1, bbbb=2, cccc="3", dddd=4.0)),
+    )
+    @test render(nt) == """
+        v · 1 leaf
+        └─ das28_remission_by_treatment_x
+           @NamedTuple{aaaa::Int64, bbbb::Int64, cccc::Strin…
+        """
+
+    # a type short enough to fit stays on the key's line
+    short = ValueSet("v", Dict("k" => (aaaa=1, bbbb=2, cccc="3", dddd=4.0)))
+    @test render(short) ==
+          "v · 1 leaf\n└─ k  @NamedTuple{aaaa::Int64, bbbb::Int64, cccc::Strin…\n"
+end
+
+@testset "structure quoting" begin
+    vs = ValueSet("q", Dict("a,b" => 1, "has space" => 2, "" => 3, "plain-key" => 4))
+    r = render(vs)
+    @test occursin("\"a,b\"", r)
+    @test occursin("\"has space\"", r)
+    @test occursin("\"\"", r)
+    @test occursin("plain-key", r)
+    @test !occursin("\"plain-key\"", r)
+end
+
+@testset "structure faces" begin
+    vs = ValueSet("v", Dict("a" => 1))
+    colored = sprint(show, MIME"text/plain"(), vs; context=:color => true)
+    # the tree glyphs and the leaf type are dimmed; bright_black is ANSI 90
+    @test occursin("\e[90m", colored)
+    # the set name is bold
+    @test occursin("\e[1m", colored)
+    # without color the output is plain text
+    plain = sprint(show, MIME"text/plain"(), vs)
+    @test !occursin("\e[", plain)
+    @test occursin("└─ a", plain)
 end
 
 @testset "ValueSet show" begin
     vs = ValueSet("v", Dict("a" => 1))
-    @test sprint(show, MIME"text/plain"(), vs) == structure(vs)
+    @test sprint(show, MIME"text/plain"(), vs) == String(structure(vs))
+    # the one-line form is unchanged
+    @test sprint(show, vs) == "ValueSet(\"v\", 1 leaves)"
     # the raw dict remains reachable with its ordinary display
     @test vs.dict == Dict("a" => 1)
     @test occursin("Dict", sprint(show, MIME"text/plain"(), vs.dict))
