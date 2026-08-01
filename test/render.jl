@@ -87,7 +87,6 @@ const VREG = Registry(
                 ),
             ),
         ),
-        ValueSet("sym", Dict(:a => 1)),
     ],
 )
 
@@ -97,8 +96,8 @@ const VREG = Registry(
           (e=5, n=10, p="50%")
     # a zero-length path returns the whole dict
     @test Hawkeye.val(VREG, "descr") isa AbstractDict
-    # Symbol keys resolve through their string form
-    @test Hawkeye.val(VREG, "sym", "a") == 1
+    # a Symbol-keyed dictionary is rejected when the value set is built, not at read time
+    @test_throws ArgumentError ValueSet("sym", Dict(:a => 1))
 
     # unknown value set names the known sets
     err = try

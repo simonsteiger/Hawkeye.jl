@@ -4,10 +4,33 @@ A named dictionary of computed values registered for use in manuscript prose.
 Values are read through [`val`](@ref) rather than by indexing, which is what makes both halves of
 the value check possible: an unresolvable path is caught statically instead of aborting a render,
 and a registered leaf that prose never reads can be reported as unused.
+
+Keys must be `String` at every depth. A dictionary keyed otherwise is unreachable — no `val` path
+can name its leaves — so it is rejected here, where the registry is built, rather than at the read
+that would have failed much later.
 """
 struct ValueSet
     name::String
     dict::AbstractDict
+
+    function ValueSet(name::AbstractString, dict::AbstractDict)
+        _checkkeys(name, dict, String[])
+        return new(String(name), dict)
+    end
+end
+
+# Depth-first, reporting the path of already-valid keys leading to the offending dictionary.
+function _checkkeys(name::AbstractString, d::AbstractDict, path::Vector{String})
+    for (k, v) in d
+        k isa String || throw(
+            ArgumentError(
+                "ValueSet(\"$name\"): at [$(join((repr(p) for p in path), ", "))], " *
+                "key $(repr(k)) has type $(typeof(k)); value keys must be String",
+            ),
+        )
+        v isa AbstractDict && _checkkeys(name, v, [path; k])
+    end
+    return nothing
 end
 
 "The recursive key/type skeleton of a registered value. Compared structurally to group branches."
@@ -30,13 +53,12 @@ Base.hash(b::Branch, h::UInt) = hash(b.children, hash(:Branch, h))
 """
     shape(x) -> Shape
 
-The key/type skeleton of `x`. Keys are stringified and sorted, so two dictionaries with the same
-contents in different insertion order compare equal.
+The key/type skeleton of `x`. Keys are sorted, so two dictionaries with the same contents in
+different insertion order compare equal.
 """
 function shape(d::AbstractDict)
-    ks = sort!([string(k) for k in keys(d)])
-    lookup = Dict(string(k) => v for (k, v) in d)
-    return Branch([k => shape(lookup[k]) for k in ks])
+    ks = sort!(collect(String, keys(d)))
+    return Branch([k => shape(d[k]) for k in ks])
 end
 
 shape(x) = Leaf(typeof(x))

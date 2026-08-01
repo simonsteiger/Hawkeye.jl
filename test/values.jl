@@ -65,6 +65,40 @@ end
     @test occursin("Dict", sprint(show, MIME"text/plain"(), vs.dict))
 end
 
+@testset "ValueSet key validation" begin
+    # a valid nested dictionary is accepted unchanged
+    ok = ValueSet("v", Dict("a" => Dict("b" => 1)))
+    @test ok.dict == Dict("a" => Dict("b" => 1))
+
+    # a Symbol key at the root is rejected
+    @test_throws ArgumentError ValueSet("v", Dict(:a => 1))
+
+    # a Symbol key nested one level down is rejected
+    @test_throws ArgumentError ValueSet("v", Dict("High" => Dict(:das28 => 1)))
+
+    # a non-Symbol, non-String key is rejected too
+    @test_throws ArgumentError ValueSet("v", Dict(2024 => 1))
+
+    # the message names the set, the path to the containing dict, and the offending key
+    err = try
+        ValueSet("descr", Dict("High" => Dict(:das28 => 1)))
+    catch e
+        sprint(showerror, e)
+    end
+    @test occursin("descr", err)
+    @test occursin("[\"High\"]", err)
+    @test occursin(":das28", err)
+    @test occursin("Symbol", err)
+
+    # a root-level offender reports an empty path
+    err2 = try
+        ValueSet("descr", Dict(:a => 1))
+    catch e
+        sprint(showerror, e)
+    end
+    @test occursin("at []", err2)
+end
+
 @testset "faces" begin
     faces = StyledStrings.FACES.current[]
     @test haskey(faces, :hawkeye_name)
