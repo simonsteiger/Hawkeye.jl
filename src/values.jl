@@ -84,6 +84,17 @@ end
 
 _fmtkeys(ks) = join(("\"$k\"" for k in ks), ", ")
 
+# Bare by default. A comma is the correctness case: grouped keys are comma-joined, so an unquoted
+# key containing one would read as two keys.
+_fmtkey(k::AbstractString) =
+    (isempty(k) || occursin(r"[,\s]", k)) ? repr(String(k)) : String(k)
+
+# Long types wrap badly and are background information; the face already says "this is a type".
+function _fmttype(T)
+    s = string(T)
+    return length(s) > 50 ? string(first(s, 49), '…') : s
+end
+
 # Group this branch's children by identical shape, print each distinct shape once. Grouping is
 # what keeps a divergent dictionary honest: a union of keys per level would read as though every
 # branch had every key.

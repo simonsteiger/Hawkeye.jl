@@ -99,6 +99,35 @@ end
     @test occursin("at []", err2)
 end
 
+@testset "key formatting" begin
+    # ordinary keys print bare — quotes are noise in a tree
+    @test Hawkeye._fmtkey("n_0") == "n_0"
+    # hyphens are the common awkward case and stay bare
+    @test Hawkeye._fmtkey("moderate-objective") == "moderate-objective"
+    # a comma would read as a key separator on a grouped line
+    @test Hawkeye._fmtkey("a,b") == "\"a,b\""
+    @test Hawkeye._fmtkey("has space") == "\"has space\""
+    @test Hawkeye._fmtkey("tab\there") == "\"tab\\there\""
+    # an empty key is invisible unless quoted
+    @test Hawkeye._fmtkey("") == "\"\""
+end
+
+@testset "type truncation" begin
+    @test Hawkeye._fmttype(Int64) == "Int64"
+    # a 50-column type is left alone; 51 truncates to exactly 50
+    exactly50 = "T" * "x"^49
+    @test length(Hawkeye._fmttype(exactly50)) == 50
+    @test Hawkeye._fmttype(exactly50) == exactly50
+    over = "T" * "x"^50
+    @test length(Hawkeye._fmttype(over)) == 50
+    @test endswith(Hawkeye._fmttype(over), "…")
+    @test textwidth(Hawkeye._fmttype(over)) == 50
+    # a real long type
+    long =
+        Hawkeye._fmttype(@NamedTuple{aaaa::Int64, bbbb::Int64, cccc::String, dddd::Float64})
+    @test length(long) == 50
+end
+
 @testset "faces" begin
     faces = StyledStrings.FACES.current[]
     @test haskey(faces, :hawkeye_name)
