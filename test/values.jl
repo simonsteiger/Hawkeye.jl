@@ -1,4 +1,5 @@
 using Hawkeye
+using StyledStrings
 using Test
 
 @testset "shape" begin
@@ -62,4 +63,13 @@ end
     # the raw dict remains reachable with its ordinary display
     @test vs.dict == Dict("a" => 1)
     @test occursin("Dict", sprint(show, MIME"text/plain"(), vs.dict))
+end
+
+@testset "faces" begin
+    faces = StyledStrings.FACES.current[]
+    @test haskey(faces, :hawkeye_name)
+    @test haskey(faces, :hawkeye_count)
+    @test haskey(faces, :hawkeye_tree)
+    @test haskey(faces, :hawkeye_type)
+    @test faces[:hawkeye_type].foreground == StyledStrings.SimpleColor(:bright_black)
 end
