@@ -5,7 +5,7 @@ using Test
 const V = Hawkeye.Checks.Values
 
 @testset "value check" begin
-    text = "n=\$(val(\"descr\", \"n_0\")) and \$(val(\"props\", \"Moderate\", \"das28\"))"
+    text = "n=\$(val(\"descr\", [\"n_0\"])) and \$(val(\"props\", [\"Moderate\", \"das28\"]))"
     rep = V.analyze(CHECKREG, [src(text)])
     rows = Dict(r.name => r for r in rep.rows)
     @test rows["descr"].leaves == 2
@@ -19,8 +19,8 @@ const V = Hawkeye.Checks.Values
 
     # everything read: no findings at all
     all_read =
-        "\$(val(\"descr\", \"n_0\")) \$(val(\"descr\", \"n_6\")) " *
-        "\$(val(\"props\", \"Moderate\", \"das28\"))"
+        "\$(val(\"descr\", [\"n_0\"])) \$(val(\"descr\", [\"n_6\"])) " *
+        "\$(val(\"props\", [\"Moderate\", \"das28\"]))"
     clean = V.analyze(CHECKREG, [src(all_read)])
     @test isempty(clean.unused)
     @test !V.has_findings(clean)
@@ -28,22 +28,28 @@ const V = Hawkeye.Checks.Values
 end
 
 @testset "unknown paths" begin
-    rep = V.analyze(CHECKREG, [src("\$(val(\"descr\", \"n_9\"))")])
+    rep = V.analyze(CHECKREG, [src("\$(val(\"descr\", [\"n_9\"]))")])
     @test rep.unknown == [(["descr", "n_9"], "manuscript.qmd", 1)]
     @test occursin("UNKNOWN PATH", V.report_string(rep))
+    # findings show the call in the form the author must fix
+    @test occursin("val(\"descr\", [\"n_9\"])", V.report_string(rep))
 
     # an unregistered value set is also an unknown path
-    rep2 = V.analyze(CHECKREG, [src("\$(val(\"ghost\", \"x\"))")])
+    rep2 = V.analyze(CHECKREG, [src("\$(val(\"ghost\", [\"x\"]))")])
     @test rep2.unknown == [(["ghost", "x"], "manuscript.qmd", 1)]
 
     # a path that stops on an interior node is not a leaf reference and is unknown
-    rep3 = V.analyze(CHECKREG, [src("\$(val(\"props\", \"Moderate\"))")])
+    rep3 = V.analyze(CHECKREG, [src("\$(val(\"props\", [\"Moderate\"]))")])
     @test rep3.unknown == [(["props", "Moderate"], "manuscript.qmd", 1)]
 
-    rep4 = V.analyze(CHECKREG, [src("\$(val(\n\"descr\"))")])
+    rep4 = V.analyze(CHECKREG, [src("\$(val(\n\"descr\", [\"n_0\"]))")])
     @test rep4.unparsed == [("manuscript.qmd", 1)]
 
+    # a helper-built path is unparsed, not silently uncounted
+    rep5 = V.analyze(CHECKREG, [src("\$(val(\"descr\", f(\"n_0\")))")])
+    @test rep5.unparsed == [("manuscript.qmd", 1)]
+
     # commented-out reads do not count
-    rep5 = V.analyze(CHECKREG, [src("<!-- \$(val(\"descr\", \"n_0\")) -->")])
-    @test ["descr", "n_0"] in rep5.unused
+    rep6 = V.analyze(CHECKREG, [src("<!-- \$(val(\"descr\", [\"n_0\"])) -->")])
+    @test ["descr", "n_0"] in rep6.unused
 end

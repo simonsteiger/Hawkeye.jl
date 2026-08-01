@@ -91,6 +91,49 @@ function extract_calls(masked::AbstractString, fname::AbstractString)
     return calls, unparsed
 end
 
+# A full `f("name", ["a", "b"])` call. Group 1 is the name, group 2 the bracketed argument list,
+# which is `nothing` for an empty vector.
+_vec_call_regex(fname::AbstractString) = Regex(
+    "\\b" *
+    fname *
+    "\\(\\s*\"([^\"]*)\"\\s*,\\s*" *
+    "\\[\\s*(\"[^\"]*\"(?:\\s*,\\s*\"[^\"]*\")*)?\\s*\\]\\s*\\)",
+)
+
+"""
+    extract_vec_calls(masked, fname) -> (calls, unparsed)
+
+Pull every `fname("name", ["a", ...])` call with a literal name and a literal path vector out of
+masked `.qmd` text. Each `Call.args` is the name followed by the path elements.
+
+`unparsed` lists lines where a bare `fname(` outnumbers the calls the regex could read. A call
+split across lines, or one whose path comes from a helper function, lands here. A helper's path
+cannot be resolved without evaluating it — the aliasing problem this check exists to prevent — so
+such calls are reported rather than silently dropped, which would read as unused leaves.
+"""
+function extract_vec_calls(masked::AbstractString, fname::AbstractString)
+    callre = _vec_call_regex(fname)
+    openre = _open_regex(fname)
+    calls = Call[]
+    unparsed = Int[]
+    for (i, line) in enumerate(eachsplit(masked, '\n'))
+        opened = count(openre, line)
+        parsed = 0
+        for m in eachmatch(callre, line)
+            parsed += 1
+            path = if m.captures[2] === nothing
+                String[]
+            else
+                [String(q.captures[1]) for q in eachmatch(_QUOTED, m.captures[2])]
+            end
+            args = [String(m.captures[1]); path]
+            push!(calls, Call(args, i, m.offset, m.offset + ncodeunits(m.match) - 1))
+        end
+        opened > parsed && push!(unparsed, i)
+    end
+    return calls, unparsed
+end
+
 "A table or figure number typed by hand rather than produced by `ref`."
 const _LITERAL = r"(?:supplementary\s+)?(?:Table|Figure)s?\s+\d+"
 

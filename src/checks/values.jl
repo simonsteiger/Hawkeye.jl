@@ -1,8 +1,8 @@
 """
 Static check of registered value reads.
 
-Scans `.qmd` text for `val("set", "key", ...)` calls and reports paths that do not resolve — which
-would abort a render at the first bad call — and registered leaves that no source ever reads,
+Scans `.qmd` text for `val("set", ["key", ...])` calls and reports paths that do not resolve —
+which would abort a render at the first bad call — and registered leaves that no source ever reads,
 which answers which computed statistics never made it into the paper.
 
 This check is only possible because values are read through `val` rather than by indexing.
@@ -14,7 +14,7 @@ module Values
 using PrettyTables
 
 using ...Hawkeye: Registry, leafpaths
-using ..Checks: Source, mask_comments, extract_calls
+using ..Checks: Source, mask_comments, extract_vec_calls
 
 "One value set's coverage."
 struct ValRow
@@ -44,7 +44,7 @@ function analyze(reg::Registry, sources::AbstractVector{Source})
 
     for s in sources
         masked = mask_comments(s.text)
-        calls, up = extract_calls(masked, "val")
+        calls, up = extract_vec_calls(masked, "val")
         for c in calls
             push!(read_paths, (c.args, s.path, c.line))
         end
@@ -81,7 +81,9 @@ end
 
 has_findings(r::Report) = !isempty(r.unknown) || !isempty(r.unused) || !isempty(r.unparsed)
 
-_fmtpath(p::Vector{String}) = join(("\"$k\"" for k in p), ", ")
+# The report prints the call as the author must write it: name, then a bracketed path.
+_fmtcall(p::Vector{String}) =
+    "val(" * repr(p[1]) * ", [" * join((repr(k) for k in p[2:end]), ", ") * "])"
 
 function report_string(r::Report)
     io = IOBuffer()
@@ -104,7 +106,7 @@ function report_string(r::Report)
     if !isempty(r.unknown)
         println(io, "\nUNKNOWN PATH — does not resolve; these abort quarto render:")
         for (p, f, l) in r.unknown
-            println(io, "  $f:$l  val($(_fmtpath(p)))")
+            println(io, "  $f:$l  $(_fmtcall(p))")
         end
     end
     if !isempty(r.unparsed)
@@ -119,7 +121,7 @@ function report_string(r::Report)
     if !isempty(r.unused)
         println(io, "\nUNUSED — registered but never read by any source:")
         for p in r.unused
-            println(io, "  val($(_fmtpath(p)))")
+            println(io, "  $(_fmtcall(p))")
         end
     end
 

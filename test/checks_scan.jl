@@ -64,6 +64,37 @@ end
     @test isempty(calls)
 end
 
+@testset "extract_vec_calls" begin
+    # the bracketed form yields [name; path...], the same arg vector the flat form used to
+    calls, up = S.extract_vec_calls("n=\$(val(\"descr\", [\"n_0\"]))", "val")
+    @test length(calls) == 1
+    @test calls[1].args == ["descr", "n_0"]
+    @test isempty(up)
+
+    # two calls on one line stay in source order
+    two = "\$(val(\"descr\", [\"n_0\"])) and \$(val(\"props\", [\"Moderate\", \"das28\"]))"
+    calls2, _ = S.extract_vec_calls(two, "val")
+    @test [c.args for c in calls2] == [["descr", "n_0"], ["props", "Moderate", "das28"]]
+
+    # an empty path parses; it names an interior node and the value check reports it as unknown
+    calls3, _ = S.extract_vec_calls("\$(val(\"descr\", []))", "val")
+    @test calls3[1].args == ["descr"]
+
+    # a path built by a helper cannot be resolved statically and is reported, not dropped
+    calls4, up4 = S.extract_vec_calls("\$(val(\"props\", f3(\"pct\")))", "val")
+    @test isempty(calls4)
+    @test up4 == [1]
+
+    # the flat form is no longer a val call
+    calls5, up5 = S.extract_vec_calls("\$(val(\"descr\", \"n_0\"))", "val")
+    @test isempty(calls5)
+    @test up5 == [1]
+
+    # line numbers survive multi-line text
+    calls6, _ = S.extract_vec_calls("first\n\$(val(\"descr\", [\"n_0\"]))", "val")
+    @test calls6[1].line == 2
+end
+
 @testset "find_literals" begin
     hits = S.find_literals(
         "See Table 3 for details.\nnothing here\nsupplementary Figure 2 too",
