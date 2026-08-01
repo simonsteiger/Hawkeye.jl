@@ -91,17 +91,18 @@ const VREG = Registry(
 )
 
 @testset "val" begin
-    @test Hawkeye.val(VREG, "descr", "n_0") == 872
-    @test Hawkeye.val(VREG, "props", "Moderate", "decomposition", "das28_remission") ==
+    @test Hawkeye.val(VREG, "descr", ["n_0"]) == 872
+    @test Hawkeye.val(VREG, "props", ["Moderate", "decomposition", "das28_remission"]) ==
           (e=5, n=10, p="50%")
-    # a zero-length path returns the whole dict
-    @test Hawkeye.val(VREG, "descr") isa AbstractDict
+    # an empty path returns the whole dict
+    @test Hawkeye.val(VREG, "descr", String[]) isa AbstractDict
+
     # a Symbol-keyed dictionary is rejected when the value set is built, not at read time
     @test_throws ArgumentError ValueSet("sym", Dict(:a => 1))
 
     # unknown value set names the known sets
     err = try
-        Hawkeye.val(VREG, "ghost", "x")
+        Hawkeye.val(VREG, "ghost", ["x"])
     catch e
         sprint(showerror, e)
     end
@@ -109,14 +110,16 @@ const VREG = Registry(
 
     # unknown key names the level that failed and the valid keys there
     err2 = try
-        Hawkeye.val(VREG, "descr", "n_9")
+        Hawkeye.val(VREG, "descr", ["n_9"])
     catch e
         sprint(showerror, e)
     end
     @test occursin("n_9", err2) && occursin("n_0", err2)
+    # the message shows the call in its bracketed form
+    @test occursin("[\"n_9\"]", err2)
 
     # descending past a leaf is an error, not a silent nothing
-    @test_throws ArgumentError Hawkeye.val(VREG, "descr", "n_0", "deeper")
+    @test_throws ArgumentError Hawkeye.val(VREG, "descr", ["n_0", "deeper"])
 end
 
 @testset "caption and footer" begin

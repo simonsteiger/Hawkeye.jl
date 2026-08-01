@@ -18,7 +18,7 @@ end
 
 @testset "@bind" begin
     @test ProjA.ref("pop1") == "Table 1"
-    @test ProjA.val("descr", "n_0") == 872
+    @test ProjA.val("descr", ["n_0"]) == 872
     @test ProjA.caption("pop1") == "Table 1: Descriptives."
     @test ProjA.footer("pop1") == "FOOT"
     @test ProjA.entry_label("f1") == "Figure 1"

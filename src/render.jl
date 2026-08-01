@@ -80,33 +80,34 @@ footer(reg::Registry, key::AbstractString) = _footer(_entry(reg, key))
 _footer(e::AbstractTable) = e.footer
 _footer(::AbstractFigure) = ""
 
-# Keys are matched on their string form, so Symbol-keyed dictionaries work and lookup agrees with
-# how `shape` and `leafpaths` stringify keys.
+# ValueSet construction guarantees String keys, so a direct lookup is correct — no stringification
+# of the stored key, which is what used to make the display advertise an access form the
+# dictionary did not have.
 function _child(d::AbstractDict, k::AbstractString)
-    for (kk, vv) in d
-        string(kk) == k && return (vv, true)
-    end
+    haskey(d, k) && return (d[k], true)
     return (nothing, false)
 end
 
-_keylist(d::AbstractDict) = join(sort!([repr(string(k)) for k in keys(d)]), ", ")
+_keylist(d::AbstractDict) = join(sort!([repr(String(k)) for k in keys(d)]), ", ")
+
+_fmtcall(name, path) = "val(" * repr(name) * ", [" * join(map(repr, path), ", ") * "])"
 
 """
-    val(reg, name, path...)
+    val(reg, name, path)
 
-Read a registered value by its key path. Varargs rather than a delimited string, so no key
-character is reserved.
+Read a registered value by its key path. The path is a vector, which separates it from the value
+set name at the call site — the name selects a set from the registry, the path descends inside it.
 
 ```julia
-val(reg, "descr", "n_0")
-val(reg, "props", "Moderate", "decomposition", "das28_remission")
+val(reg, "descr", ["n_0"])
+val(reg, "props", ["Moderate", "decomposition", "das28_remission"])
 ```
 
 Throws `ArgumentError` naming the level that failed and the valid keys at that level. Routing
 value access through this function is what lets the value check find unknown paths statically and
 report registered leaves that prose never reads.
 """
-function val(reg::Registry, name::AbstractString, path::AbstractString...)
+function val(reg::Registry, name::AbstractString, path::AbstractVector{<:AbstractString})
     haskey(reg.valindex, name) || throw(
         ArgumentError(
             "unknown value set: \"$name\"; registered: " *
@@ -117,14 +118,14 @@ function val(reg::Registry, name::AbstractString, path::AbstractString...)
     for (i, k) in enumerate(path)
         cur isa AbstractDict || throw(
             ArgumentError(
-                "val(\"$name\", $(join(map(repr, path), ", "))): " *
+                "$(_fmtcall(name, path)): " *
                 "\"$(path[i-1])\" is a leaf of type $(typeof(cur)); cannot descend to \"$k\"",
             ),
         )
         child, ok = _child(cur, k)
         ok || throw(
             ArgumentError(
-                "val(\"$name\", $(join(map(repr, path), ", "))): " *
+                "$(_fmtcall(name, path)): " *
                 "no key \"$k\" at level $i; valid keys there: $(_keylist(cur))",
             ),
         )

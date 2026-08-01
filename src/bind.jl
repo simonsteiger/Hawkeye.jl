@@ -16,7 +16,7 @@ Hawkeye.@bind REG
 end
 ```
 
-Manuscript prose then reads `ref("pop1")` and `val("descr", "n_0")`.
+Manuscript prose then reads `ref("pop1")` and `val("descr", ["n_0"])`.
 
 Hawkeye deliberately does not export these names. Defining `ref` in a module that has
 `using Hawkeye` would otherwise add a method to Hawkeye's own function rather than creating a
@@ -30,7 +30,8 @@ macro bind(reg)
     return esc(
         quote
             ref(keys::AbstractString...) = $fref($reg, keys...)
-            val(name::AbstractString, path::AbstractString...) = $fval($reg, name, path...)
+            val(name::AbstractString, path::AbstractVector{<:AbstractString}) =
+                $fval($reg, name, path)
             caption(key::AbstractString) = $fcaption($reg, key)
             footer(key::AbstractString) = $ffooter($reg, key)
             entry_label(key::AbstractString) = $flabel($reg, key)
