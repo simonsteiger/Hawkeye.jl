@@ -7,6 +7,12 @@ resets the comment counter; each `.comment` div increments it; each `.revision` 
 and tagged `R{reviewer}.{comment}`. A `status="..."` attribute on a comment div carries through to
 the overview, so the report doubles as a traffic-light view of where each point stands. Statuses
 are open strings — the check reports what it finds rather than validating a fixed list.
+
+Matching is line by line: a `.revision` div often quotes several separate manuscript passages, and a
+line only has to appear somewhere in the manuscript. Quote marks and inline markup are ignored on
+both sides, and `[...]` in a quote stands for an elided citation. A citation, footnote, or link the
+author did *not* elide still has to appear in the quote as it does in the manuscript; otherwise the
+strings genuinely differ and the line is reported missing.
 """
 module Revisions
 

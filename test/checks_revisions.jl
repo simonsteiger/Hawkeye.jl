@@ -121,3 +121,104 @@ end
     @test RV.found(rep2.results[1])
     @test !RV.has_findings(rep2)
 end
+
+const BEES = """
+# Reviewer 1
+
+::: {.comment status="done"}
+Please justify the pricing model.
+:::
+
+::: {.revision section="Discussion"}
+"By applying a parallel approach to both roadside and B2B channels — including
+identical jar sizing, a multilevel pricing model, and \$R^2\$ as a common
+measure of engagement — we provide a direct comparison of kerbside and LinkedIn
+honey sales."\\
+"Whilst our study illustrates some differences between kerbside and platform
+selling for the colonies analysed here, it should not be taken as a
+comprehensive comparison of both go-to-market frameworks."
+:::
+
+::: {.comment status="done"}
+Cite the forage-radius literature.
+:::
+
+::: {.revision section="Methods"}
+"Foragers ranged up to 1.5 km from the stand [...] which we treat as the
+catchment radius."
+:::
+
+::: {.comment status="todo"}
+Report the engagement rate.
+:::
+
+::: {.revision section="Results"}
+"The stand sold 240 jars in the first quarter."
+"Posts about B2B honey sales reached 30 percent engagement."
+:::
+
+::: {.comment status="todo"}
+Soften the abstract.
+:::
+
+::: {.revision section="Abstract"}
+"
+:::
+
+::: {.comment status="todo"}
+Trim the conclusion.
+:::
+
+::: {.revision section="Conclusion"}
+:::
+"""
+
+const HIVE = """
+Methods. Foragers ranged up to 1.5 km from the stand [@apis2019Radius], which we
+treat as the catchment radius.
+
+Results. The stand sold 240 jars in the first quarter. Posts about B2B honey
+sales reached 12 percent engagement.
+
+Discussion. By applying a parallel approach to both roadside and B2B channels —
+including identical jar sizing, a multilevel pricing model, and \$R^2\$ as a
+common measure of engagement — we provide a direct comparison of kerbside and
+LinkedIn honey sales. Whilst our study illustrates some differences between
+kerbside and platform selling for the colonies analysed here, it should not be
+taken as a comprehensive comparison of both go-to-market frameworks.
+"""
+
+@testset "reply-letter shapes" begin
+    rep = RV.analyze(BEES, HIVE)
+    by = Dict(r.id => r for r in rep.results)
+
+    # a quote spanning several lines: quote marks open on one line and close on another,
+    # a hard break ends one line, and inline maths sits mid-sentence
+    @test RV.found(by["R1.1"])
+    @test by["R1.1"].nlines == 7
+
+    # [...] stands for a citation the manuscript still carries, so each side matches separately
+    @test RV.found(by["R1.2"])
+    @test by["R1.2"].nlines == 2
+
+    # one stale figure in an otherwise matching div
+    @test !RV.found(by["R1.3"])
+    @test by["R1.3"].nlines == 2
+    @test [m.line for m in by["R1.3"].misses] == [2]
+    @test occursin("30 percent", by["R1.3"].misses[1].snippet)
+
+    # a line holding nothing but a quote mark is skipped, not matched
+    @test by["R1.4"].nlines == 0
+    @test !RV.found(by["R1.4"])
+
+    # an empty revision div is an authoring error, not a pass
+    @test by["R1.5"].nlines == 0
+    @test !RV.found(by["R1.5"])
+
+    @test isempty(rep.orphans)
+
+    s = RV.report_string(rep)
+    @test occursin("MISSING 1/2", s)
+    @test occursin("(line 2 of 2)", s)
+    @test occursin("empty revision div", s)
+end
