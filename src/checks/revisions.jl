@@ -73,10 +73,10 @@ end
 
 "A single quoted manuscript revision pulled from a reply letter."
 struct Revision
-    id::String      # "R{reviewer}.{comment}"
-    section::String # freeform pointer, "" if none
-    status::String  # from the comment div it answers, "" if none
-    text::String    # raw joined body; normalized at match time
+    id::String              # "R{reviewer}.{comment}"
+    section::String         # freeform pointer, "" if none
+    status::String          # from the comment div it answers, "" if none
+    lines::Vector{String}   # raw div body; split into needles at match time
 end
 
 "A reviewer comment and whether a revision was recorded for it."
@@ -119,12 +119,7 @@ function extract(qmd::AbstractString)
             if occursin(_FENCE_CLOSE, line)
                 push!(
                     revisions,
-                    Revision(
-                        "R$reviewer.$comment",
-                        section,
-                        status,
-                        strip(join(body, " ")),
-                    ),
+                    Revision("R$reviewer.$comment", section, status, copy(body)),
                 )
                 if !isempty(comments) && comments[end].id == "R$reviewer.$comment"
                     comments[end] = Comment(comments[end].id, comments[end].status, true)
@@ -161,33 +156,59 @@ function extract(qmd::AbstractString)
     return revisions, comments
 end
 
+"A revision line absent from the manuscript."
+struct Miss
+    line::Int       # index among the revision's content-bearing lines
+    snippet::String
+end
+
 "Outcome of matching one `Revision` against the manuscript text."
 struct Result
     id::String
     status::String
     section::String
-    found::Bool
-    snippet::String
+    nlines::Int     # content-bearing lines in the revision div
+    misses::Vector{Miss}
 end
+
+"""
+    found(r::Result) -> Bool
+
+Whether every content-bearing line of the revision appears in the manuscript. A revision div with no
+content-bearing line is an authoring error and is never found.
+"""
+found(r::Result) = r.nlines > 0 && isempty(r.misses)
 
 struct Report
     results::Vector{Result}
     orphans::Vector{Comment}
 end
 
+"First 60 characters of a raw revision line, ellipsised when cut."
+function _snippet(line::AbstractString)
+    s = strip(line)
+    return length(s) <= 60 ? String(s) : first(s, 60) * "…"
+end
+
 """
     analyze(reply_qmd, manuscript_text) -> Report
 
-Normalize both sides, then test each revision's text as a substring of the manuscript text. Empty
-revision text never matches. Comments with no recorded revision are returned as orphans.
+Normalize both sides, then test each revision line as a substring of the manuscript text. Lines with
+no content are skipped; a revision with no content-bearing line is reported as a miss. Comments with
+no recorded revision are returned as orphans.
 """
 function analyze(reply_qmd::AbstractString, manuscript_text::AbstractString)
     revisions, comments = extract(reply_qmd)
     hay = normalize_text(manuscript_text)
     results = map(revisions) do r
-        needle = normalize_text(r.text)
-        found = !isempty(needle) && occursin(needle, hay)
-        Result(r.id, r.status, r.section, found, first(needle, 60))
+        content = [
+            (l, ns) for (l, ns) in ((l, line_needles(l)) for l in r.lines) if !isempty(ns)
+        ]
+        misses = [
+            Miss(i, _snippet(l)) for
+            (i, (l, ns)) in enumerate(content) if !all(n -> occursin(n, hay), ns)
+        ]
+        Result(r.id, r.status, r.section, length(content), misses)
     end
     return Report(results, [c for c in comments if !c.responded])
 end
@@ -205,7 +226,12 @@ function manuscript_plaintext(paths::AbstractVector{<:AbstractString})
     return join(texts, "\n")
 end
 
-has_findings(r::Report) = any(!x.found for x in r.results) || !isempty(r.orphans)
+has_findings(r::Report) = any(!found(x) for x in r.results) || !isempty(r.orphans)
+
+"How much of a revision is missing, for the overview table."
+_quote_cell(x::Result) =
+    x.nlines == 0 ? "empty" :
+    isempty(x.misses) ? "ok" : "MISSING $(length(x.misses))/$(x.nlines)"
 
 function report_string(r::Report)
     io = IOBuffer()
@@ -214,7 +240,7 @@ function report_string(r::Report)
         [x.id for x in r.results],
         [isempty(x.status) ? "—" : x.status for x in r.results],
         [isempty(x.section) ? "—" : x.section for x in r.results],
-        [x.found ? "ok" : "MISSING" for x in r.results],
+        [_quote_cell(x) for x in r.results],
     )
     pretty_table(
         io,
@@ -225,11 +251,17 @@ function report_string(r::Report)
         display_size=(typemax(Int), typemax(Int)),
     )
 
-    misses = [x for x in r.results if !x.found]
+    misses = [x for x in r.results if !found(x)]
     if !isempty(misses)
         println(io, "\nMISSING — quote not found in the manuscript:")
         for x in misses
-            println(io, "  $(x.id): \"$(x.snippet)…\"")
+            if x.nlines == 0
+                println(io, "  $(x.id): (empty revision div)")
+            else
+                for m in x.misses
+                    println(io, "  $(x.id) (line $(m.line) of $(x.nlines)): $(m.snippet)")
+                end
+            end
         end
         println(io, "\nPaste the exact sentence from the rendered manuscript.")
     end

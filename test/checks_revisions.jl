@@ -83,7 +83,8 @@ end
     @test [r.id for r in revs] == ["R1.1", "R1.2", "R2.1"]
     @test revs[1].section == "Methods"
     @test revs[2].section == ""
-    @test occursin("872 patients", revs[1].text)
+    @test revs[1].lines == ["We included 872 patients at baseline."]
+    @test revs[2].lines == ["The revised text appears here."]
 
     # status rides on the comment div and is carried onto its revision
     @test revs[1].status == "done"
@@ -95,7 +96,7 @@ end
 @testset "analyze" begin
     manuscript = "Methods. We included 872 patients at baseline. The revised text appears here."
     rep = RV.analyze(REPLY, manuscript)
-    found = Dict(r.id => r.found for r in rep.results)
+    found = Dict(r.id => RV.found(r) for r in rep.results)
     @test found["R1.1"]
     @test found["R1.2"]
     @test !found["R2.1"]
@@ -103,6 +104,9 @@ end
 
     # a comment with no revision is an ORPHAN — a reviewer point with no recorded response
     @test [c.id for c in rep.orphans] == ["R1.3"]
+
+    # single-line revisions report one content-bearing line
+    @test Dict(r.id => r.nlines for r in rep.results)["R1.1"] == 1
 
     s = RV.report_string(rep)
     @test occursin("ORPHAN", s)
@@ -114,6 +118,6 @@ end
         "::: {.comment}\nc\n:::\n\n::: {.revision}\nthe \"quoted\" bit\n:::\n",
         "text with the " * Char(0x201C) * "quoted" * Char(0x201D) * " bit inside",
     )
-    @test rep2.results[1].found
+    @test RV.found(rep2.results[1])
     @test !RV.has_findings(rep2)
 end
