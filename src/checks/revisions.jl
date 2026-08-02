@@ -51,6 +51,26 @@ function normalize_text(s::AbstractString)
     return strip(replace(String(take!(buf)), r" +" => " "))
 end
 
+# blockquote, bullet, or ordered-list marker at the start of a line
+const _BLOCK_MARKER = r"^(?:>+\s*|[-+*]\s+|\d+\.\s+)"
+
+"""
+    line_needles(line) -> Vector{String}
+
+The normalized fragments one revision line must match. A leading block marker is dropped, `[...]`
+splits the line where the author elided a citation the manuscript still carries, and fragments with
+no letter or digit are discarded — they would match any manuscript.
+"""
+function line_needles(line::AbstractString)
+    body = normalize_text(replace(strip(line), _BLOCK_MARKER => ""))
+    needles = String[]
+    for frag in eachsplit(body, "[...]")
+        f = strip(frag)
+        any(c -> isletter(c) || isdigit(c), f) && push!(needles, String(f))
+    end
+    return needles
+end
+
 "A single quoted manuscript revision pulled from a reply letter."
 struct Revision
     id::String      # "R{reviewer}.{comment}"

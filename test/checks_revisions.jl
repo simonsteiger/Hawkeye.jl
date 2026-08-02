@@ -57,6 +57,27 @@ Something not in the manuscript at all.
     @test RV.normalize_text("don" * Char(0x2019) * "t") == "don't"
 end
 
+@testset "line_needles" begin
+    # a quote may open, close, or do neither on any given line
+    @test RV.line_needles("\"A quoted sentence.\"") == ["A quoted sentence."]
+    @test RV.line_needles("\"An unclosed opening quote.") == ["An unclosed opening quote."]
+    @test RV.line_needles("A closing quote only.\"") == ["A closing quote only."]
+    @test RV.line_needles("\"Ends with a hard break.\"\\") == ["Ends with a hard break."]
+
+    # block markers are not part of the quoted text
+    @test RV.line_needles("> \"Inside a blockquote.\"") == ["Inside a blockquote."]
+    @test RV.line_needles("- A bullet.") == ["A bullet."]
+    @test RV.line_needles("1. An ordered item.") == ["An ordered item."]
+
+    # [...] marks an elided citation, so each side of it must match separately
+    @test RV.line_needles("Before [...] after.") == ["Before", "after."]
+
+    # a line with no letters or digits would match any manuscript
+    @test isempty(RV.line_needles("\""))
+    @test isempty(RV.line_needles("\\"))
+    @test isempty(RV.line_needles("   "))
+end
+
 @testset "extract" begin
     revs, comments = RV.extract(REPLY)
     @test [r.id for r in revs] == ["R1.1", "R1.2", "R2.1"]
