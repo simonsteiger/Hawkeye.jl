@@ -39,10 +39,22 @@ Something not in the manuscript at all.
 """
 
 @testset "normalize_text" begin
-    # curly quotes straightened, dashes unified, whitespace collapsed
-    @test RV.normalize_text("a" * Char(0x201C) * "b" * Char(0x201D)) == "a\"b\""
+    # dashes unified, whitespace collapsed
     @test RV.normalize_text("a–b") == "a-b"
     @test RV.normalize_text("  a   b\n c ") == "a b c"
+
+    # double quotes carry no content and are dropped, straight and curly alike
+    @test RV.normalize_text("\"quoted\"") == "quoted"
+    @test RV.normalize_text("a" * Char(0x201C) * "b" * Char(0x201D)) == "ab"
+    @test RV.normalize_text("«guillemets»") == "guillemets"
+
+    # inline markup is dropped so a quote matches whether or not it carries it
+    @test RV.normalize_text("**bold** and `code`") == "bold and code"
+    @test RV.normalize_text("tau\$^2\$ = 3.3") == "tau2 = 3.3"
+    @test RV.normalize_text("ends with a hard break\\") == "ends with a hard break"
+
+    # apostrophes carry meaning in prose and survive
+    @test RV.normalize_text("don" * Char(0x2019) * "t") == "don't"
 end
 
 @testset "extract" begin

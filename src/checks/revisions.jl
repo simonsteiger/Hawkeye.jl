@@ -15,6 +15,7 @@ using PrettyTables
 # hyphen/en-dash/em-dash/figure-dash/minus variants -> '-'
 const _DASHES = Set{Char}(['‐', '‑', '‒', '–', '—', '―', '−'])
 const _DQUOTES = Set{Char}([
+    '"',
     Char(0x201C),
     Char(0x201D),
     Char(0x201E),
@@ -24,16 +25,23 @@ const _DQUOTES = Set{Char}([
 ])
 const _SQUOTES = Set{Char}([Char(0x2018), Char(0x2019), Char(0x201A), Char(0x201B)])
 
-"Collapse whitespace to single spaces; straighten curly quotes; unify dashes. Trims ends."
+# emphasis, inline code, hard line break, math delimiters, super/subscript
+const _MARKUP = Set{Char}(['*', '_', '`', '\\', '$', '^', '~'])
+
+"""
+Collapse whitespace to single spaces; unify dashes; straighten curly apostrophes. Double quotes and
+inline markup characters are deleted: they carry no content, and deleting them from both the quoted
+revision and the manuscript keeps the two comparable regardless of quoting or emphasis. Trims ends.
+"""
 function normalize_text(s::AbstractString)
     buf = IOBuffer()
     for ch in s
         if ch in _DASHES
             print(buf, '-')
-        elseif ch in _DQUOTES
-            print(buf, '"')
         elseif ch in _SQUOTES
             print(buf, '\'')
+        elseif ch in _DQUOTES || ch in _MARKUP
+            continue
         elseif isspace(ch)
             print(buf, ' ')
         else
