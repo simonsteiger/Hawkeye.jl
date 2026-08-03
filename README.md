@@ -2,11 +2,7 @@
 
 [![Build Status](https://github.com/simonsteiger/Hawkeye.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/simonsteiger/Hawkeye.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-Numbering and validation for Quarto research manuscripts written in Julia.
-
-Table and figure numbers are derived from a registry, never typed. Computed statistics are read
-through a checkable accessor, never indexed. Four static checks then report what is wrong before
-`quarto render` does.
+Sometimes it's hard to tell what's in and what's out. Let the [machine](https://en.wikipedia.org/wiki/Hawk-Eye) take care of that.
 
 ## Main features
 
