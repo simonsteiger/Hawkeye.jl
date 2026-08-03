@@ -8,9 +8,10 @@ Table and figure numbers are derived from a registry, never typed. Computed stat
 through a checkable accessor, never indexed. Four static checks then report what is wrong before
 `quarto render` does.
 
-## The registry
+## Main features
 
-Declare entries and values once, in a small project module, and bind them:
+The main purpose of this package is to help you organise your tables and figures.
+This is done by defining collections of that are vectors of `AbstractEntry`:
 
 ```julia
 module ManuscriptRefs
@@ -31,10 +32,10 @@ Hawkeye.@bind REG
 end
 ```
 
-An entry's number is its position within its `(kind, location)` bucket, taken from declaration
-order. Reorder `ENTRIES` and every number follows.
+The table and figure numbers are automatically taken care of via the ordering in each of the vectors.
+There'll be more info in the docs once I have them.
 
-## In prose
+## Entries to markdown
 
 ```markdown
 Patients were followed for six months ($(ref("tab1"))).
@@ -47,32 +48,12 @@ joins them. Argument order does not affect the result. Passing several keys to o
 is what lets them group — two adjacent calls cannot merge, and the reference check reports that
 as `ADJACENT`.
 
-## Inspecting a value set
-
-Deeply nested result dictionaries are opaque when writing prose. `structure` draws the key
-hierarchy as a tree, grouping sibling subtrees that share a shape:
-
-```julia
-julia> ManuscriptRefs.REG.values[1]
-descr · 4 leaves
-└─ High, Moderate
-   └─ das28_remission, sdai_remission
-      @NamedTuple{e::Int64, n::Int64, p::String}
-```
-
-Glyphs, the leaf count and the leaf types are dimmed, leaving the keys — which is what a `val`
-path is written from — as the only foreground text. The four faces are `hawkeye_name`,
-`hawkeye_count`, `hawkeye_tree` and `hawkeye_type`, restylable from a `faces.toml`.
-
-Value dictionary keys must be `String` at every depth; a `ValueSet` built from a dictionary keyed
-otherwise throws, naming the offending key and the path to it.
-
-`vs.dict` returns the raw dictionary with its ordinary display.
-
 ## Checks
 
-Each check is a pure `analyze` returning a report, plus `has_findings` and `report_string`. IO and
-exit codes live in your scripts — see `examples/`.
+Hawkeye can do a bunch of checks for you.
+Doing these manually is one of the things I like the least about writing manuscripts, but getting them
+automated correctly is of course difficult.
+You should always double-check!
 
 | Check | Reports |
 | --- | --- |
@@ -81,8 +62,7 @@ exit codes live in your scripts — see `examples/`.
 | `Checks.Bib` | per-entry citation counts, uncited `.bib` entries, citations with no entry |
 | `Checks.Revisions` | reply-letter quotes missing from the rendered manuscript, comment status overview, comments with no recorded response |
 
-Run the reference check *before* `quarto render`: an unknown key makes `ref` throw, killing the
-render at the first bad call, so nothing in the document would ever report the rest.
+Make sure to run the reference check *before* `quarto render`.
 
 ## Installation
 
