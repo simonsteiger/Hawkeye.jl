@@ -17,13 +17,13 @@ module ManuscriptRefs
 using Hawkeye
 
 const ENTRIES = AbstractEntry[
-    MainTable("pop1", "Descriptive statistics at six months.", "DAS28: disease activity score"),
-    SuppTable("def_rem", "Definitions of the remission outcomes.", "DAS28: disease activity score"),
-    MainFigure("fig_descr", "Prescription patterns over time.", "figures/descr.svg"),
+    MainTable("tab1", "All you ever wanted to know about my sample.", "GG: Good Game"),
+    SuppTable("stab1", "The table that most people probably won't look at.", "GLHF: Good Luck Have Fun"),
+    MainFigure("fig1", "This figure is here to make veryone happy.", "figures/fig1.svg"),
 ]
 
 const VALUES = ValueSet[
-    ValueSet("descr", load("output/descr_dict.jld2", "descr_dict")),
+    ValueSet("descriptives", load("output/descriptives.jld2", "descr")),
 ]
 
 const REG = Registry(ENTRIES, VALUES)
@@ -37,13 +37,13 @@ order. Reorder `ENTRIES` and every number follows.
 ## In prose
 
 ```markdown
-Patients were followed for six months ($(ref("pop1"))).
-Definitions appear in $(ref("def_rem", "fig_descr")).
-The cohort included $(val("descr", ["n_0"])) patients.
+Patients were followed for six months ($(ref("tab1"))).
+Definitions appear in $(ref("tab_def", "fig1")).
+The cohort included $(val("descr", ["t0"])) patients.
 ```
 
 `ref` groups its arguments by bucket, sorts them, collapses runs of three or more to a range, and
-joins them BMJ-style. Argument order does not affect the result. Passing several keys to one call
+joins them. Argument order does not affect the result. Passing several keys to one call
 is what lets them group — two adjacent calls cannot merge, and the reference check reports that
 as `ADJACENT`.
 
@@ -86,6 +86,8 @@ render at the first bad call, so nothing in the document would ever report the r
 
 ## Installation
 
+This package is not registered in the General registry. Add it via url:
+
 ```julia
-pkg> add https://github.com/simonsteiger/Hawkeye.jl
+Pkg.add(url="https://github.com/simonsteiger/Hawkeye.jl")
 ```
