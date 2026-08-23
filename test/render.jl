@@ -129,16 +129,3 @@ end
     # figures have no footer
     @test Hawkeye.footer(VREG, "fig_descr") == ""
 end
-
-@testset "figures_md" begin
-    md = Hawkeye.figures_md(VREG)
-    @test occursin("## Main article figures", md)
-    @test occursin("## Supplementary figures", md)
-    @test occursin("![Figure 1: A figure.](figs/descr.svg)", md)
-    @test occursin("![Supplementary Figure 1: Supp figure.](figs/high.svg)", md)
-    # a pagebreak between consecutive figures, but not before the first
-    @test occursin("{{< pagebreak >}}", md)
-    @test !startswith(md, "{{< pagebreak >}}")
-    # tables contribute nothing
-    @test !occursin("Descriptives", md)
-end

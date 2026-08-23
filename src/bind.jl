@@ -1,8 +1,8 @@
 """
     @bind reg
 
-Define registry-free `ref`, `val`, `caption`, `footer`, `entry_label` and `figures_md` in the
-calling module, each forwarding to the Hawkeye function with `reg` pre-applied, and export them.
+Define registry-free `ref`, `val`, `caption`, `footer` and `entry_label` in the calling module,
+each forwarding to the Hawkeye function with `reg` pre-applied, and export them.
 
 Intended for a small project module that owns the registry:
 
@@ -26,7 +26,7 @@ interpolated directly, so the generated code depends on no name being in scope a
 macro bind(reg)
     fref, fval = ref, val
     fcaption, ffooter = caption, footer
-    flabel, ffigures = entry_label, figures_md
+    flabel = entry_label
     return esc(
         quote
             ref(keys::AbstractString...) = $fref($reg, keys...)
@@ -35,8 +35,7 @@ macro bind(reg)
             caption(key::AbstractString) = $fcaption($reg, key)
             footer(key::AbstractString) = $ffooter($reg, key)
             entry_label(key::AbstractString) = $flabel($reg, key)
-            figures_md() = $ffigures($reg)
-            export ref, val, caption, footer, entry_label, figures_md
+            export ref, val, caption, footer, entry_label
             nothing
         end,
     )
