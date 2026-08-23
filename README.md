@@ -13,9 +13,9 @@ This is done by defining collections of that are vectors of `AbstractEntry`:
 module ManuscriptRefs
 using Hawkeye
 
-const ENTRIES = AbstractEntry[
-    MainTable("tab1", "All you ever wanted to know about my sample.", "GG: Good Game"),
-    SuppTable("stab1", "The table that most people probably won't look at.", "GLHF: Good Luck Have Fun"),
+const ENTRIES = [
+    MainTable("tab1", "All you ever wanted to know about my sample.", "SD: Standard deviation"),
+    SuppTable("stab1", "The table that most people probably won't look at.", "OR: Odds ratio"),
     MainFigure("fig1", "This figure is here to make veryone happy.", "figures/fig1.svg"),
 ]
 
@@ -39,17 +39,13 @@ Definitions appear in $(ref("tab_def", "fig1")).
 The cohort included $(val("descr", ["t0"])) patients.
 ```
 
-`ref` groups its arguments by bucket, sorts them, collapses runs of three or more to a range, and
-joins them. Argument order does not affect the result. Passing several keys to one call
-is what lets them group — two adjacent calls cannot merge, and the reference check reports that
-as `ADJACENT`.
+`ref` groups its arguments by type (figures, tables), sorts them to avoid "Tables 3, 1", and collapses runs of three or more "Tables 1-3".
 
 ## Checks
 
 Hawkeye can do a bunch of checks for you.
-Doing these manually is one of the things I like the least about writing manuscripts, but getting them
-automated correctly is of course difficult.
-You should always double-check!
+Doing these manually is one of the things I like the least about writing manuscripts, but getting them automated correctly is of course difficult.
+You should always double-check – this is meant to assist, not to guarantee!
 
 | Check | Reports |
 | --- | --- |
