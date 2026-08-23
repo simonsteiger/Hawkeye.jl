@@ -22,7 +22,6 @@ end
     @test ProjA.caption("pop1") == "Table 1: Descriptives."
     @test ProjA.footer("pop1") == "FOOT"
     @test ProjA.entry_label("f1") == "Figure 1"
-    @test occursin("a.svg", ProjA.figures_md())
 
     # generated names are exported from the project module
     @test :ref in names(ProjA)

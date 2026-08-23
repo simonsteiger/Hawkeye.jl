@@ -133,30 +133,3 @@ function val(reg::Registry, name::AbstractString, path::AbstractVector{<:Abstrac
     end
     return cur
 end
-
-_heading(loc::Symbol) =
-    loc === :main ? "## Main article figures" : "## Supplementary figures"
-
-"""
-    figures_md(reg)
-
-The entire figures document body as markdown: a heading at each location boundary, a pagebreak
-between consecutive figures, one image per figure entry, in registry order.
-
-Emit it from an `#| output: asis` block. `{{< pagebreak >}}` is a Quarto shortcode and must reach
-pandoc unescaped.
-"""
-function figures_md(reg::Registry)
-    blocks = String[]
-    loc = nothing
-    for e in reg.entries
-        e isa AbstractFigure || continue
-        isempty(blocks) || push!(blocks, "{{< pagebreak >}}")
-        if location(e) !== loc
-            loc = location(e)
-            push!(blocks, _heading(loc))
-        end
-        push!(blocks, "![$(caption(reg, e.key))]($(e.path))")
-    end
-    return join(blocks, "\n\n") * "\n"
-end
