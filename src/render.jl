@@ -42,12 +42,15 @@ Render one or more entry keys as an English cross-reference.
 Keys are bucketed by `(kind, location)`. Buckets are emitted in the registry's canonical
 `bucket_order`, so argument order does not affect the result. Within a bucket, numbers are sorted
 and deduplicated, contiguous runs of three or more collapse to a range, and items are joined
-BMJ-style. Buckets sharing a `kind` are then joined BMJ-style; buckets of mixed `kind` are joined
-with commas.
+BMJ-style. Two buckets are joined with " and " when the first holds a single number, and with
+", and " when it holds several. Three or more buckets are joined with commas and a final ", and ".
 
 ```julia
 ref(reg, "prop_trt")                            # "Table 3"
 ref(reg, "prop_rem_Moderate", "or_rem_Moderate") # "supplementary Tables 2 and 3"
+ref(reg, "prop_trt", "fig_descr")               # "Table 3 and Figure 1"
+ref(reg, "prop_rem", "prop_trt", "fig_descr")   # "Tables 2 and 3, and Figure 1"
+ref(reg, "prop_trt", "def_rem", "fig_descr")    # "Table 3, supplementary Table 1, and Figure 1"
 ```
 """
 function ref(reg::Registry, keys::AbstractString...)
@@ -58,14 +61,15 @@ function ref(reg::Registry, keys::AbstractString...)
         push!(get!(groups, bucket(e), Int[]), number(reg, e.key))
     end
     order = [b for b in reg.bucket_order if haskey(groups, b)]
-    parts = map(order) do b
-        nums = sort!(unique(groups[b]))
+    bucket_numbers = [sort!(unique(groups[b])) for b in order]
+    parts = map(order, bucket_numbers) do b, nums
         label = _bucket_label(b[1], b[2], length(nums) > 1)
         # BMJ style, no Oxford comma: join's third argument is the final separator
         return string(label, " ", join(_collapse(nums), ", ", " and "))
     end
-    all_same_kind = length(Set(b[1] for b in order)) == 1
-    return all_same_kind ? join(parts, ", ", " and ") : join(parts, ", ")
+    two_buckets_first_single = length(parts) == 2 && length(first(bucket_numbers)) == 1
+    final_separator = two_buckets_first_single ? " and " : ", and "
+    return join(parts, ", ", final_separator)
 end
 
 "Full caption for the docx or the figure caption slot, with a sentence-initial prefix."
