@@ -52,10 +52,25 @@ end
 end
 
 @testset "ref mixed buckets" begin
-    # same kind, two locations: joined with "and"
+    # two buckets, the first holding one number: joined with "and", whether or not they share a kind
     @test Hawkeye.ref(REG, "pop1", "def_rem") == "Table 1 and supplementary Table 1"
-    # mixed kinds: joined with a comma
-    @test Hawkeye.ref(REG, "fig_descr", "pop1") == "Table 1, Figure 1"
+    @test Hawkeye.ref(REG, "fig_descr", "pop1") == "Table 1 and Figure 1"
+    @test Hawkeye.ref(REG, "pop1", "fig_descr", "fig_rem") == "Table 1 and Figures 1 and 2"
+    # two buckets, the first holding several numbers: joined with ", and "
+    @test Hawkeye.ref(REG, "fig_high", "s4", "s5", "fig_trt_high") ==
+          "supplementary Tables 4 and 5, and supplementary Figures 1 and 2"
+    @test Hawkeye.ref(REG, "pop1", "prop_rem", "prop_trt", "fig_descr") ==
+          "Tables 1–3, and Figure 1"
+    # three or more buckets: commas, with ", and " before the last
+    @test Hawkeye.ref(REG, "fig_descr", "pop1", "def_rem") ==
+          "Table 1, supplementary Table 1, and Figure 1"
+    @test Hawkeye.ref(REG, "fig_high", "fig_descr", "pop1", "def_rem") ==
+          "Table 1, supplementary Table 1, Figure 1, and supplementary Figure 1"
+    # every boundary between three or more buckets carries a comma, whatever the bucket sizes
+    @test Hawkeye.ref(REG, "pop1", "s4", "s5", "fig_descr") ==
+          "Table 1, supplementary Tables 4 and 5, and Figure 1"
+    @test Hawkeye.ref(REG, "pop1", "prop_rem", "s4", "s5", "fig_descr", "fig_rem") ==
+          "Tables 1 and 2, supplementary Tables 4 and 5, and Figures 1 and 2"
 end
 
 @testset "ref bucket order is canonical" begin
