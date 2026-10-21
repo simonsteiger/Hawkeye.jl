@@ -4,6 +4,7 @@ using StyledStrings
 
 include("entries.jl")
 include("values.jl")
+include("scan.jl")
 include("registry.jl")
 include("render.jl")
 include("bind.jl")
@@ -13,7 +14,7 @@ export AbstractEntry, AbstractTable, AbstractFigure
 export MainTable, SuppTable, MainFigure, SuppFigure
 export sanitize_join
 export ValueSet, structure
-export Registry
+export Registry, Source
 export Checks
 
 # Registered faces can be restyled from a user's faces.toml.

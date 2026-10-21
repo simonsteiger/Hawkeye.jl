@@ -11,7 +11,8 @@ module ManuscriptRefs
 using Hawkeye
 const ENTRIES = [MainTable("pop1", "...", POP_FOOTER)]
 const VALUES  = [ValueSet("descr", load("descr.jld2", "descr_dict"))]
-const REG = Registry(ENTRIES, VALUES)
+const SOURCES = [Source(p, read(p, String)) for p in ["manuscript.qmd"]]
+const REG = Registry(ENTRIES, VALUES; sources=SOURCES)
 Hawkeye.@bind REG
 end
 ```

@@ -2,7 +2,9 @@
 Cross-reference check.
 
 Scans `.qmd` text for `ref("key")` calls. For each registry entry it reports whether the entry is
-referenced and whether first references appear in ascending numeric order. It also reports unknown
+referenced and whether first references appear in ascending numeric order. A registry numbers its
+entries by first reference in its own sources, so the order check finds problems only when the
+checked sources differ from the registry's. It also reports unknown
 keys, `ref(` calls it could not read, hand-typed numbers, adjacent calls that should be merged, and
 figure files that do not exist.
 
@@ -21,9 +23,12 @@ using ..Checks: Source, Call, mask_comments, extract_calls, find_literals, find_
 """
 The result for one registry entry.
 
-`status` is one of `"ok"`, `"UNREFERENCED"`, `"PENDING (no body)"`, or
-`"OUT OF ORDER (before KEY @FILE:LINE)"`. `first` is the file and line of the first reference, or
-`nothing` when the entry is unreferenced.
+`status` is one of `"ok"`, `"UNREFERENCED"`, `"PENDING (no body)"`,
+`"OUT OF ORDER (before KEY @FILE:LINE)"`, or
+`"UNNUMBERED (not referenced in the registry's sources)"` for an entry the checked sources cite
+but the registry dropped. `label` is `"—"` for an entry the registry dropped, since it has no
+number. `first` is the file and line of the first reference, or `nothing` when the entry is
+unreferenced.
 """
 struct RefRow
     key::String
@@ -35,7 +40,8 @@ end
 """
 The result for a set of sources.
 
-`rows` has one row per registry entry, in registry order. The other fields list findings that do
+`rows` has one row per entry in `reg.entries`, including dropped entries, in registry order. The
+other fields list findings that do
 not belong to a single entry.
 """
 struct Report
@@ -55,7 +61,9 @@ Check `.qmd` sources against the registry.
 Within each `(kind, location)` bucket the first reference to each entry should appear in ascending
 order of number, and every entry should be referenced at least once. Later references to the same
 entry are ignored for ordering. When a higher-numbered entry is referenced first, its row is marked
-out of order and names the lower-numbered entry referenced after it.
+out of order and names the lower-numbered entry referenced after it. Checked against the sources
+the registry was built from, every first reference is in order and every unreferenced entry is one
+the registry dropped.
 
 `figdir` is the directory that figure paths resolve against; pass `nothing` to skip the file
 existence check.
@@ -81,13 +89,14 @@ function analyze(
         append!(adjacent, ((s.path, l) for l in find_adjacent(masked, "ref")))
     end
 
-    unknown = [(k, f, l) for (k, f, l) in refs if !haskey(reg.index, k)]
+    registered = Set(e.key for e in reg.entries)
+    unknown = [(k, f, l) for (k, f, l) in refs if !(k in registered)]
 
-    # first reference per known key, in source order
+    # first reference per registered key, in source order
     first_at = Dict{String,Tuple{String,Int}}()
     order = String[]
     for (k, f, l) in refs
-        (haskey(reg.index, k) && !haskey(first_at, k)) || continue
+        (k in registered && !haskey(first_at, k)) || continue
         first_at[k] = (f, l)
         push!(order, k)
     end
@@ -95,7 +104,7 @@ function analyze(
     # key => (lower-numbered key first referenced after it, location of that reference)
     violation = Dict{String,Tuple{String,Tuple{String,Int}}}()
     for b in reg.bucket_order
-        seq = [k for k in order if bucket(reg.index[k]) == b]
+        seq = [k for k in order if haskey(reg.index, k) && bucket(reg.index[k]) == b]
         for i in 2:length(seq)
             if number(reg, seq[i]) < number(reg, seq[i-1])
                 violation[seq[i-1]] = (seq[i], first_at[seq[i]])
@@ -108,6 +117,8 @@ function analyze(
         at = get(first_at, key, nothing)
         status = if at === nothing
             "UNREFERENCED"
+        elseif key in reg.dropped
+            "UNNUMBERED (not referenced in the registry's sources)"
         elseif key in reg.pending
             "PENDING (no body)"
         elseif haskey(violation, key)
@@ -116,7 +127,8 @@ function analyze(
         else
             "ok"
         end
-        RefRow(key, entry_label(reg, key), status, at)
+        label = key in reg.dropped ? "—" : entry_label(reg, key)
+        RefRow(key, label, status, at)
     end
 
     missing_figures = Tuple{String,String}[]
@@ -212,7 +224,8 @@ function report_string(r::Report)
     if has_findings(r)
         println(
             io,
-            "\nNumbers come from the registry. Reference with ref(\"key\"); " *
+            "\nNumbers follow the order of first reference in the sources. " *
+            "Reference with ref(\"key\"); " *
             "never write a number by hand.",
         )
     else

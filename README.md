@@ -23,12 +23,17 @@ const VALUES = ValueSet[
     ValueSet("descriptives", load("output/descriptives.jld2", "descr")),
 ]
 
-const REG = Registry(ENTRIES, VALUES)
+const SOURCES = [Source(p, read(p, String)) for p in ["manuscript.qmd", "supplement.qmd"]]
+
+const REG = Registry(ENTRIES, VALUES; sources=SOURCES)
 Hawkeye.@bind REG
 end
 ```
 
-The table and figure numbers are automatically taken care of via the ordering in each of the vectors.
+Table and figure numbers follow the order in which the sources first cite each entry with `ref`, counted separately for main and supplementary tables and figures.
+The sources are read in the order given, and the arguments of one `ref` call from left to right.
+Entries the sources never cite are dropped and get no number.
+`Registry` throws if a `ref(` call cannot be read or names a key that is not registered.
 There'll be more info in the docs once I have them.
 
 ## Entries to markdown

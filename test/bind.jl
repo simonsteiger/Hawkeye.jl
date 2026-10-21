@@ -5,14 +5,18 @@ module ProjA
 using Hawkeye
 const REG = Registry(
     [MainTable("pop1", "Descriptives.", "FOOT"), MainFigure("f1", "A fig.", "a.svg")],
-    [ValueSet("descr", Dict("n_0" => 872))],
+    [ValueSet("descr", Dict("n_0" => 872))];
+    sources=[Source("a.qmd", "\$(ref(\"pop1\")) and \$(ref(\"f1\"))")],
 )
 Hawkeye.@bind REG
 end
 
 module ProjB
 using Hawkeye
-const REG = Registry([MainTable("other", "Other.", "F")])
+const REG = Registry(
+    [MainTable("other", "Other.", "F")];
+    sources=[Source("b.qmd", "\$(ref(\"other\"))")],
+)
 Hawkeye.@bind REG
 end
 
