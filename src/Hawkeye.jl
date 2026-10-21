@@ -16,9 +16,7 @@ export ValueSet, structure
 export Registry
 export Checks
 
-# Faces are registered rather than hardcoded so a user's faces.toml can restyle the tree.
-# A repeat addface! for an existing face neither errors nor overwrites, so no guard is needed
-# against precompilation or a reload.
+# Registered faces can be restyled from a user's faces.toml.
 function __init__()
     StyledStrings.addface!(:hawkeye_name => StyledStrings.Face(weight=:bold))
     StyledStrings.addface!(:hawkeye_count => StyledStrings.Face(foreground=:bright_black))

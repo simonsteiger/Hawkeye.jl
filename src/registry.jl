@@ -1,10 +1,9 @@
 """
-The single source of truth for a manuscript's numbering and registered values.
+The table and figure entries and the value sets of one manuscript.
 
-A number is an entry's position within its `(kind, location)` bucket, derived from `entries`
-order. Numbers are never written down. `bucket_order` is likewise derived — the order each bucket
-first appears in `entries` — so cross-reference output can be canonically ordered without a
-second declaration that could drift out of sync.
+An entry's number is its position among the entries of the same `(kind, location)` bucket, in the
+order of `entries`. `bucket_order` is the order in which buckets first appear in `entries`; `ref`
+lists buckets in this order.
 """
 struct Registry
     entries::Vector{AbstractEntry}
@@ -16,16 +15,17 @@ struct Registry
     valindex::Dict{String,ValueSet}
 end
 
-# A caption that already carries its own "Table 1:" style prefix would render the number twice.
+# Matches a caption that starts with its own number, such as "Table 1:".
 const _CAPTION_PREFIX = r"^\s*(?:supplementary\s+)?(?:table|figure)s?\s+\d+\s*:"i
 
 """
     Registry(entries, values = ValueSet[]; pending = String[])
 
-Build a registry, validating it. Throws `ArgumentError` on a duplicate entry key, a duplicate
-value set name, a caption that carries its own number prefix, or a `pending` key that names no
-entry. `pending` lists entries that have a number but no rendered body yet; the reference check
-reports them as `PENDING` rather than as errors.
+Build a registry. Throws `ArgumentError` on a duplicate entry key, a duplicate value set name, a
+caption that starts with its own number, or a `pending` key that names no entry.
+
+`pending` lists entries whose table or figure does not exist yet. The reference check reports a
+referenced pending entry as `PENDING`, which is not a finding.
 """
 function Registry(
     entries::AbstractVector{<:AbstractEntry},

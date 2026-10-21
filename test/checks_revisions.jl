@@ -43,7 +43,7 @@ Something not in the manuscript at all.
     @test RV.normalize_text("a–b") == "a-b"
     @test RV.normalize_text("  a   b\n c ") == "a b c"
 
-    # double quotes carry no content and are dropped, straight and curly alike
+    # straight and curly double quotes are dropped
     @test RV.normalize_text("\"quoted\"") == "quoted"
     @test RV.normalize_text("a" * Char(0x201C) * "b" * Char(0x201D)) == "ab"
     @test RV.normalize_text("«guillemets»") == "guillemets"
@@ -53,7 +53,7 @@ Something not in the manuscript at all.
     @test RV.normalize_text("tau\$^2\$ = 3.3") == "tau2 = 3.3"
     @test RV.normalize_text("ends with a hard break\\") == "ends with a hard break"
 
-    # apostrophes carry meaning in prose and survive
+    # apostrophes are kept
     @test RV.normalize_text("don" * Char(0x2019) * "t") == "don't"
 end
 
@@ -86,7 +86,7 @@ end
     @test revs[1].lines == ["We included 872 patients at baseline."]
     @test revs[2].lines == ["The revised text appears here."]
 
-    # status rides on the comment div and is carried onto its revision
+    # a revision takes the status of the comment it answers
     @test revs[1].status == "done"
     @test revs[2].status == "in-progress"
     @test [c.id for c in comments] == ["R1.1", "R1.2", "R1.3", "R2.1"]
@@ -102,7 +102,7 @@ end
     @test !found["R2.1"]
     @test RV.has_findings(rep)
 
-    # a comment with no revision is an ORPHAN — a reviewer point with no recorded response
+    # a comment with no revision is an orphan
     @test [c.id for c in rep.orphans] == ["R1.3"]
 
     # single-line revisions report one content-bearing line
@@ -207,11 +207,11 @@ taken as a comprehensive comparison of both go-to-market frameworks.
     @test [m.line for m in by["R1.3"].misses] == [2]
     @test occursin("30 percent", by["R1.3"].misses[1].snippet)
 
-    # a line holding nothing but a quote mark is skipped, not matched
+    # a line holding only a quote mark is skipped
     @test by["R1.4"].nlines == 0
     @test !RV.found(by["R1.4"])
 
-    # an empty revision div is an authoring error, not a pass
+    # an empty revision div is a finding
     @test by["R1.5"].nlines == 0
     @test !RV.found(by["R1.5"])
 

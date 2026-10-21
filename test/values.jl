@@ -25,8 +25,8 @@ end
     @test Hawkeye.leafpaths(Dict("x" => Dict{String,Any}())) == Vector{String}[]
 end
 
-# Rendering is tested through `structure` at a fixed width, so assertions are exact strings
-# rather than `occursin` — glyph placement is the thing under test.
+# `structure` is called at a fixed width and compared with exact strings, because the position of
+# the tree characters is under test.
 render(vs; width=80) =
     String(structure(vs, IOContext(devnull, :displaysize => (24, width))))
 
@@ -140,7 +140,7 @@ end
 @testset "ValueSet show" begin
     vs = ValueSet("v", Dict("a" => 1))
     @test sprint(show, MIME"text/plain"(), vs) == String(structure(vs))
-    # the one-line form is unchanged
+    # the one-line form
     @test sprint(show, vs) == "ValueSet(\"v\", 1 leaves)"
     # the raw dict remains reachable with its ordinary display
     @test vs.dict == Dict("a" => 1)
@@ -182,9 +182,9 @@ end
 end
 
 @testset "key formatting" begin
-    # ordinary keys print bare — quotes are noise in a tree
+    # ordinary keys are printed without quotes
     @test Hawkeye._fmtkey("n_0") == "n_0"
-    # hyphens are the common awkward case and stay bare
+    # keys with hyphens are printed without quotes
     @test Hawkeye._fmtkey("moderate-objective") == "moderate-objective"
     # a comma would read as a key separator on a grouped line
     @test Hawkeye._fmtkey("a,b") == "\"a,b\""
@@ -204,7 +204,7 @@ end
     @test length(Hawkeye._fmttype(over)) == 50
     @test endswith(Hawkeye._fmttype(over), "…")
     @test textwidth(Hawkeye._fmttype(over)) == 50
-    # a real long type
+    # a long NamedTuple type
     long =
         Hawkeye._fmttype(@NamedTuple{aaaa::Int64, bbbb::Int64, cccc::String, dddd::Float64})
     @test length(long) == 50

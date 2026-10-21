@@ -28,7 +28,7 @@ end
 @testset "ref single bucket" begin
     @test Hawkeye.ref(REG, "prop_trt") == "Table 3"
     @test Hawkeye.ref(REG, "def_rem", "pop2") == "supplementary Tables 1 and 2"
-    # BMJ style: no Oxford comma
+    # no comma before the final "and"
     @test Hawkeye.ref(REG, "def_rem", "pop2", "s3") == "supplementary Tables 1–3"
     # duplicates collapse
     @test Hawkeye.ref(REG, "pop1", "pop1") == "Table 1"
@@ -45,7 +45,7 @@ end
 end
 
 @testset "BMJ joining is Base.join" begin
-    # no helper: Base.join takes a distinct final separator, and gives BMJ style directly
+    # the third argument of Base.join is the final separator
     @test join(["a"], ", ", " and ") == "a"
     @test join(["a", "b"], ", ", " and ") == "a and b"
     @test join(["a", "b", "c"], ", ", " and ") == "a, b and c"
@@ -74,14 +74,14 @@ end
 end
 
 @testset "ref bucket order is canonical" begin
-    # the bug from manuscript.qmd:385 — merged into one call, tables group correctly
+    # tables and figures passed in mixed order are grouped by bucket
     merged = Hawkeye.ref(REG, "fig_high", "s4", "s5", "fig_trt_high")
     @test occursin("supplementary Tables 4 and 5", merged)
     @test occursin("supplementary Figures 1 and 2", merged)
 
-    # argument order no longer affects output
+    # argument order does not affect output
     @test Hawkeye.ref(REG, "s4", "fig_high") == Hawkeye.ref(REG, "fig_high", "s4")
-    # and the canonical order is the registry's: supp tables precede supp figures
+    # buckets follow the registry's order: supp tables precede supp figures
     r = Hawkeye.ref(REG, "fig_high", "s4")
     @test findfirst("supplementary Table", r)[1] < findfirst("supplementary Figure", r)[1]
 end
@@ -133,7 +133,7 @@ const VREG = Registry(
     # the message shows the call in its bracketed form
     @test occursin("[\"n_9\"]", err2)
 
-    # descending past a leaf is an error, not a silent nothing
+    # descending past a leaf throws
     @test_throws ArgumentError Hawkeye.val(VREG, "descr", ["n_0", "deeper"])
 end
 

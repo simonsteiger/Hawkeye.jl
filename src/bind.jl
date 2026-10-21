@@ -1,10 +1,10 @@
 """
     @bind reg
 
-Define registry-free `ref`, `val`, `caption`, `footer` and `entry_label` in the calling module,
-each forwarding to the Hawkeye function with `reg` pre-applied, and export them.
+Define `ref`, `val`, `caption`, `footer` and `entry_label` in the calling module and export them.
+Each forwards to the Hawkeye function of the same name with `reg` as its first argument.
 
-Intended for a small project module that owns the registry:
+Use it in the project module that defines the registry:
 
 ```julia
 module ManuscriptRefs
@@ -18,10 +18,7 @@ end
 
 Manuscript prose then reads `ref("pop1")` and `val("descr", ["n_0"])`.
 
-Hawkeye deliberately does not export these names. Defining `ref` in a module that has
-`using Hawkeye` would otherwise add a method to Hawkeye's own function rather than creating a
-local one, and two project modules would overwrite each other's binding. The function objects are
-interpolated directly, so the generated code depends on no name being in scope at the call site.
+Hawkeye does not export these five names, so two project modules can each bind their own registry.
 """
 macro bind(reg)
     fref, fval = ref, val
