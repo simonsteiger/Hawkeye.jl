@@ -12,7 +12,7 @@ const S = Hawkeye.Checks
     @test split(masked, '\n')[4] == "b"
     @test !occursin("x", masked)
 
-    # non-greedy: a second comment is not swallowed with the text between
+    # text between two comments is kept
     @test occursin("keep", S.mask_comments("<!-- a --> keep <!-- b -->"))
     @test !occursin("a", S.mask_comments("<!-- a --> keep <!-- b -->"))
     @test S.mask_comments("plain\ntext") == "plain\ntext"
@@ -25,7 +25,7 @@ end
     @test occursin("before", masked)
     @test occursin("after", masked)
     @test !occursin("@macro", masked)
-    # inline code spans survive — ref calls live in `{julia} ref("k")` spans
+    # inline code spans are kept: ref calls are written in `{julia} ref("k")` spans
     @test occursin("ref(", S.mask_code_blocks("see `{julia} ref(\"k\")`"))
 end
 
@@ -50,7 +50,7 @@ end
     calls, _ = S.extract_calls("\$(ref( \"a\" ,  \"b\" ))", "ref")
     @test calls[1].args == ["a", "b"]
 
-    # a call the regex cannot read is reported, not silently dropped
+    # a call the regex cannot read is reported as unparsed
     _, unparsed = S.extract_calls("\$(ref(\n\"a\"))", "ref")
     @test unparsed == [1]
     _, unparsed = S.extract_calls("\$(ref(k))", "ref")
@@ -65,7 +65,7 @@ end
 end
 
 @testset "extract_vec_calls" begin
-    # the bracketed form yields [name; path...], the same arg vector the flat form used to
+    # args is the name followed by the path elements
     calls, up = S.extract_vec_calls("n=\$(val(\"descr\", [\"n_0\"]))", "val")
     @test length(calls) == 1
     @test calls[1].args == ["descr", "n_0"]
@@ -80,12 +80,12 @@ end
     calls3, _ = S.extract_vec_calls("\$(val(\"descr\", []))", "val")
     @test calls3[1].args == ["descr"]
 
-    # a path built by a helper cannot be resolved statically and is reported, not dropped
+    # a path built by a helper function is reported as unparsed
     calls4, up4 = S.extract_vec_calls("\$(val(\"props\", f3(\"pct\")))", "val")
     @test isempty(calls4)
     @test up4 == [1]
 
-    # the flat form is no longer a val call
+    # a path given as a bare string, without brackets, is not parsed
     calls5, up5 = S.extract_vec_calls("\$(val(\"descr\", \"n_0\"))", "val")
     @test isempty(calls5)
     @test up5 == [1]
@@ -104,17 +104,17 @@ end
 end
 
 @testset "find_adjacent" begin
-    # the real bug, manuscript.qmd:385
+    # two calls separated only by a comma are reported
     l385 = "pattern (\$(ref(\"fig_rem_High\", \"prop_rem_High\")), \$(ref(\"prop_trt_High\", \"fig_trt_High\")))."
     @test S.find_adjacent(l385, "ref") == [1]
 
-    # manuscript.qmd:254 — separated by real prose, correctly two calls
+    # calls separated by prose are not reported
     l254 = "respectively (\$(ref(\"fig_descr\")); for details on all remission outcomes, see \$(ref(\"prop_rem\")))."
     @test isempty(S.find_adjacent(l254, "ref"))
 
-    # a single call never fires
+    # a single call is not reported
     @test isempty(S.find_adjacent("see `{julia} ref(\"def_rem\")`.", "ref"))
-    # a semicolon alone is treated as a deliberate separator
+    # calls separated by a semicolon are not reported
     @test isempty(S.find_adjacent("(\$(ref(\"a\")); \$(ref(\"b\")))", "ref"))
     # a non-ASCII character before the calls must not corrupt offsets
     @test S.find_adjacent("dash – here (\$(ref(\"a\")), \$(ref(\"b\")))", "ref") == [1]

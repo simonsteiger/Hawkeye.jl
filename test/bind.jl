@@ -27,7 +27,7 @@ end
     @test :ref in names(ProjA)
     @test :val in names(ProjA)
 
-    # two bound registries stay independent — the whole reason these names are not exported
+    # two modules bound to different registries do not affect each other
     @test ProjB.ref("other") == "Table 1"
     @test_throws ArgumentError ProjB.ref("pop1")
     @test_throws ArgumentError ProjA.ref("other")

@@ -1,13 +1,12 @@
 """
 Bibliography check.
 
-Cross-references `[@key]` citations in `.qmd` sources against the entries of a `.bib` file, and
-reports how often each entry is cited. The reference check deliberately ignores citations; this
-check covers them, and is separate because it validates a different registry.
+Compares `@key` citations in `.qmd` sources with the entries of a `.bib` file and counts how often
+each entry is cited.
 
-Pandoc has four citation spellings and all are recognised: `[@key]`, `[@a; @b]`, `@a [p. 33]`,
-and the suppressed-author form `[-@a]`. Fenced code blocks are masked first — a `.qmd` is full of
-Julia macros such as `@model` and `@__DIR__` that would otherwise read as citations.
+All four pandoc citation forms are recognised: `[@key]`, `[@a; @b]`, `@a [p. 33]` and `[-@a]`.
+Fenced code blocks are ignored, because Julia macros such as `@model` would otherwise be read as
+citations.
 """
 module Bib
 
@@ -15,7 +14,7 @@ using PrettyTables
 
 using ..Checks: Source, mask_comments, mask_code_blocks
 
-"One bibliography entry's usage."
+"How often one bibliography entry is cited, and the file and line of its first citation."
 struct BibRow
     key::String
     count::Int
@@ -28,7 +27,7 @@ struct Report
     missing_keys::Vector{Tuple{String,String,Int}} # key, file, line
 end
 
-# `@type{key,` — the key runs to the first comma or whitespace.
+# Matches `@type{key,`. The key ends at the first comma or whitespace.
 const _BIB_ENTRY = r"@\w+\s*\{\s*([^,\s\}]+)\s*,"
 
 """
@@ -39,10 +38,9 @@ Entry keys declared in `.bib` text, in file order.
 bib_keys(bibtext::AbstractString) =
     [String(m.captures[1]) for m in eachmatch(_BIB_ENTRY, bibtext)]
 
-# A citation key: optional suppressed-author dash, then the pandoc-legal key character set. The
-# lookbehind keeps email addresses and `x@y` expressions from matching. The key must end on an
-# alphanumeric/underscore character — pandoc treats a trailing `.` (or other internal punctuation)
-# as sentence punctuation, not part of the key, so it must not be swallowed here either.
+# Matches a citation key with an optional leading `-`. The lookbehind excludes email addresses and
+# `x@y` expressions. The key must end in a letter, digit or underscore, because pandoc treats
+# trailing punctuation such as `.` as part of the sentence.
 const _CITE = r"(?<![A-Za-z0-9_])-?@([A-Za-z](?:[A-Za-z0-9_:.#$%&+?<>~/-]*[A-Za-z0-9_])?)"
 
 """
@@ -65,9 +63,7 @@ end
 
 Check citations in `sources` against the entries declared in `bibtext`.
 
-Takes the `.bib` text rather than a path, so the check stays pure and testable without files.
-`missing_keys` is deduplicated by key, keeping the first occurrence's file and line — repeat
-citations of the same undefined key produce one report line, not one per occurrence.
+`missing_keys` lists each undefined key once, with the file and line of its first citation.
 """
 function analyze(bibtext::AbstractString, sources::AbstractVector{Source})
     keys_in_bib = bib_keys(bibtext)

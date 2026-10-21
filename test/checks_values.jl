@@ -13,7 +13,7 @@ const V = Hawkeye.Checks.Values
     @test rows["props"].leaves == 1
     @test rows["props"].referenced == 1
     @test isempty(rep.unknown)
-    # n_6 is registered but never read — the half nothing else can answer
+    # n_6 is registered but never read
     @test ["descr", "n_6"] in rep.unused
     @test V.has_findings(rep)
 
@@ -31,7 +31,7 @@ end
     rep = V.analyze(CHECKREG, [src("\$(val(\"descr\", [\"n_9\"]))")])
     @test rep.unknown == [(["descr", "n_9"], "manuscript.qmd", 1)]
     @test occursin("UNKNOWN PATH", V.report_string(rep))
-    # findings show the call in the form the author must fix
+    # findings are printed as val calls
     @test occursin("val(\"descr\", [\"n_9\"])", V.report_string(rep))
 
     # an unregistered value set is also an unknown path
@@ -45,7 +45,7 @@ end
     rep4 = V.analyze(CHECKREG, [src("\$(val(\n\"descr\", [\"n_0\"]))")])
     @test rep4.unparsed == [("manuscript.qmd", 1)]
 
-    # a helper-built path is unparsed, not silently uncounted
+    # a path built by a helper function is reported as unparsed
     rep5 = V.analyze(CHECKREG, [src("\$(val(\"descr\", f(\"n_0\")))")])
     @test rep5.unparsed == [("manuscript.qmd", 1)]
 

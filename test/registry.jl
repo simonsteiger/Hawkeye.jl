@@ -26,7 +26,7 @@ using Test
 end
 
 @testset "Registry validation" begin
-    # duplicate entry key: today this silently misnumbers every later entry in the bucket
+    # a duplicate entry key is rejected
     @test_throws ArgumentError Registry([MainTable("k", "a", ""), SuppTable("k", "b", "")])
 
     # caption carrying its own number prefix would render the number twice
@@ -44,7 +44,7 @@ end
         [ValueSet("v", Dict("a" => 1)), ValueSet("v", Dict("b" => 2))],
     )
 
-    # pending must name a registered entry, or it can never be reported
+    # a pending key must name a registered entry
     @test_throws ArgumentError Registry([MainTable("k", "a", "")]; pending=["ghost"])
     @test Registry([MainTable("k", "a", "")]; pending=["k"]) isa Registry
 end

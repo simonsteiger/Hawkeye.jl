@@ -12,7 +12,7 @@ using Test
     @test Hawkeye.location(t) == :main
     @test Hawkeye.location(f) == :supp
 
-    # the two axes together are what numbering buckets on
+    # bucket combines kind and location
     @test Hawkeye.bucket(MainTable("a", "", "")) == (:table, :main)
     @test Hawkeye.bucket(SuppTable("b", "", "")) == (:table, :supp)
     @test Hawkeye.bucket(MainFigure("c", "", "")) == (:figure, :main)
@@ -27,7 +27,7 @@ end
     @test sanitize_join("A: alpha", "note.") == "A: alpha. note."
     # a part that already ends in a period does not double it
     @test sanitize_join("A: alpha.", "note.") == "A: alpha. note."
-    # variadic, not chained: three parts in one call
+    # three parts in one call
     @test sanitize_join("A: a", "n1.", "n2.") == "A: a. n1. n2."
     # a single part is still normalised
     @test sanitize_join("A: a") == "A: a."
@@ -35,7 +35,7 @@ end
     @test sanitize_join("a", "", "b") == "a. b."
     @test sanitize_join() == ""
 
-    # surrounding whitespace is stripped, and warned about so the source can be cleaned
+    # surrounding whitespace is stripped with a warning
     res = @test_logs (:warn,) sanitize_join("A: a ", "note.")
     @test res == "A: a. note."
     # clean input warns about nothing

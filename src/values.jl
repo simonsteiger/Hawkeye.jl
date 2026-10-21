@@ -1,13 +1,8 @@
 """
-A named dictionary of computed values registered for use in manuscript prose.
+A named dictionary of computed values for use in manuscript prose. Read values with [`val`](@ref).
 
-Values are read through [`val`](@ref) rather than by indexing, which is what makes both halves of
-the value check possible: an unresolvable path is caught statically instead of aborting a render,
-and a registered leaf that prose never reads can be reported as unused.
-
-Keys must be `String` at every depth. A dictionary keyed otherwise is unreachable — no `val` path
-can name its leaves — so it is rejected here, where the registry is built, rather than at the read
-that would have failed much later.
+Keys must be `String` at every depth, because a `val` path can only name `String` keys. The
+constructor throws an `ArgumentError` otherwise.
 """
 struct ValueSet
     name::String
@@ -19,7 +14,7 @@ struct ValueSet
     end
 end
 
-# Depth-first, reporting the path of already-valid keys leading to the offending dictionary.
+# `path` holds the keys leading to `d` and is reported in the error message.
 function _checkkeys(name::AbstractString, d::AbstractDict, path::Vector{String})
     for (k, v) in d
         k isa String || throw(
@@ -33,7 +28,10 @@ function _checkkeys(name::AbstractString, d::AbstractDict, path::Vector{String})
     return nothing
 end
 
-"The recursive key/type skeleton of a registered value. Compared structurally to group branches."
+"""
+The keys of a nested dictionary and the types of its leaves. Two shapes are equal when their keys
+and leaf types match.
+"""
 abstract type Shape end
 
 struct Leaf <: Shape
@@ -53,8 +51,7 @@ Base.hash(b::Branch, h::UInt) = hash(b.children, hash(:Branch, h))
 """
     shape(x) -> Shape
 
-The key/type skeleton of `x`. Keys are sorted, so two dictionaries with the same contents in
-different insertion order compare equal.
+The [`Shape`](@ref) of `x`. Keys are sorted, so insertion order does not affect equality.
 """
 function shape(d::AbstractDict)
     ks = sort!(collect(String, keys(d)))
@@ -66,8 +63,7 @@ shape(x) = Leaf(typeof(x))
 """
     leafpaths(d) -> Vector{Vector{String}}
 
-Every root-to-leaf key path in `d`, where a leaf is any value that is not itself a dictionary.
-Used by the value check to enumerate what prose could read.
+The key path to every leaf of `d`. A leaf is any value that is not a dictionary.
 """
 function leafpaths(d::AbstractDict, prefix::Vector{String}=String[])
     out = Vector{String}[]
@@ -82,19 +78,19 @@ function leafpaths(d::AbstractDict, prefix::Vector{String}=String[])
     return out
 end
 
-# Bare by default. A comma is the correctness case: grouped keys are comma-joined, so an unquoted
-# key containing one would read as two keys.
+# A key is quoted only when it is empty or contains a comma or whitespace. Grouped keys are
+# comma-separated, so an unquoted comma would read as two keys.
 _fmtkey(k::AbstractString) =
     (isempty(k) || occursin(r"[,\s]", k)) ? repr(String(k)) : String(k)
 
-# Long types wrap badly and are background information; the face already says "this is a type".
+# Long type names are truncated to keep the tree readable.
 function _fmttype(T)
     s = string(T)
     return length(s) > 50 ? string(first(s, 49), '…') : s
 end
 
-# Greedy wrap over indivisible tokens. `seps[i]` precedes `tokens[i]`; `seps[1]` is unused.
-# Returns the token indices belonging to each line.
+# Fill each line with as many whole tokens as fit in `avail` columns. `seps[i]` precedes
+# `tokens[i]`; `seps[1]` is unused. Returns the token indices of each line.
 function _wraplines(
     tokens::Vector{Pair{String,Union{Nothing,Symbol}}},
     seps::Vector{String},
@@ -132,9 +128,8 @@ function _emit!(out, gutter, connector, contprefix, tokens, seps, width)
     return nothing
 end
 
-# Group this branch's children by identical shape and print each distinct shape once. Grouping is
-# what keeps a divergent dictionary honest: a union of keys per level would read as though every
-# branch had every key.
+# Children with the same shape share one node. Children with different shapes get separate nodes,
+# so the tree never shows a key under a branch that lacks it.
 function _walk!(out::Vector{AbstractString}, b::Branch, gutter::AbstractString, width::Int)
     groups = Dict{Shape,Vector{String}}()
     order = Shape[]
@@ -146,8 +141,8 @@ function _walk!(out::Vector{AbstractString}, b::Branch, gutter::AbstractString, 
         ks = groups[s]
         islast = i == length(order)
         connector = islast ? "└─ " : "├─ "
-        # A wrapped line must keep the vertical bar, or the sibling chain breaks wherever a wrap
-        # happens to fall. This prefix is exactly as wide as `gutter * connector`.
+        # Continuation lines keep the vertical bar that connects to the next sibling. The prefix is
+        # as wide as `gutter * connector`.
         contprefix = gutter * (islast ? "   " : "│  ")
         tokens = Pair{String,Union{Nothing,Symbol}}[]
         seps = String[]
@@ -169,12 +164,10 @@ end
 """
     structure(vs, io = devnull) -> AnnotatedString
 
-The key hierarchy of a value set drawn as a tree, with the leaf type after each leaf node. Sibling
-subtrees sharing a shape are listed on one node; subtrees that differ are drawn separately, so
-divergent branches are visible rather than merged.
+Draw the keys of a value set as a tree, with the type after each leaf. Sibling subtrees with the
+same shape share one node; subtrees that differ are drawn separately.
 
-Everything structural — glyphs, leaf count, leaf types — is dimmed, leaving the keys as the only
-default-weight text, since the keys are what a `val` path is written from. `io` supplies the
+Tree lines, the leaf count and leaf types are dimmed, so the keys stand out. `io` supplies the
 wrapping width; without it the output is 80 columns wide.
 """
 function structure(vs::ValueSet, io::IO=devnull)

@@ -1,15 +1,14 @@
 """
     entry_label(reg, key) -> String
 
-The entry's bucket label and number: `"Table 2"`, `"supplementary Table 4"`. Singular label, no
-trailing colon — [`caption`](@ref) builds the sentence-initial form separately.
+The entry's label and number, such as `"Table 2"` or `"supplementary Table 4"`.
 """
 function entry_label(reg::Registry, key::AbstractString)
     e = _entry(reg, key)
     return string(_bucket_label(kind(e), location(e), false), " ", number(reg, key))
 end
 
-"Sorted, unique numbers -> display items. Contiguous runs of 3+ collapse to `n–m`."
+"Format sorted, unique numbers as strings. Three or more consecutive numbers become `n–m`."
 function _collapse(nums::Vector{Int})
     items = String[]
     i = firstindex(nums)
@@ -39,11 +38,12 @@ end
 
 Render one or more entry keys as an English cross-reference.
 
-Keys are bucketed by `(kind, location)`. Buckets are emitted in the registry's canonical
+Keys are grouped by `(kind, location)` bucket, and buckets appear in the registry's
 `bucket_order`, so argument order does not affect the result. Within a bucket, numbers are sorted
-and deduplicated, contiguous runs of three or more collapse to a range, and items are joined
-BMJ-style. Two buckets are joined with " and " when the first holds a single number, and with
-", and " when it holds several. Three or more buckets are joined with commas and a final ", and ".
+and deduplicated, three or more consecutive numbers become a range, and items are joined with
+commas and a final " and ". Two buckets are joined with " and " when the first holds a single
+number, and with ", and " when it holds several. Three or more buckets are joined with commas and
+a final ", and ".
 
 ```julia
 ref(reg, "prop_trt")                            # "Table 3"
@@ -64,7 +64,7 @@ function ref(reg::Registry, keys::AbstractString...)
     bucket_numbers = [sort!(unique(groups[b])) for b in order]
     parts = map(order, bucket_numbers) do b, nums
         label = _bucket_label(b[1], b[2], length(nums) > 1)
-        # BMJ style, no Oxford comma: join's third argument is the final separator
+        # no comma before the final "and"
         return string(label, " ", join(_collapse(nums), ", ", " and "))
     end
     two_buckets_first_single = length(parts) == 2 && length(first(bucket_numbers)) == 1
@@ -72,21 +72,21 @@ function ref(reg::Registry, keys::AbstractString...)
     return join(parts, ", ", final_separator)
 end
 
-"Full caption for the docx or the figure caption slot, with a sentence-initial prefix."
+"""
+The caption preceded by its capitalised label and number, as in `"Supplementary Table 4: ..."`.
+"""
 function caption(reg::Registry, key::AbstractString)
     e = _entry(reg, key)
     prefix = uppercasefirst(_bucket_label(kind(e), location(e), false))
     return "$prefix $(number(reg, key)): $(e.caption)"
 end
 
-"Abbreviation footer. Empty string for figures."
+"The footer of a table, or an empty string for a figure."
 footer(reg::Registry, key::AbstractString) = _footer(_entry(reg, key))
 _footer(e::AbstractTable) = e.footer
 _footer(::AbstractFigure) = ""
 
-# ValueSet construction guarantees String keys, so a direct lookup is correct — no stringification
-# of the stored key, which is what used to make the display advertise an access form the
-# dictionary did not have.
+# `ValueSet` guarantees `String` keys, so `k` is looked up without conversion.
 function _child(d::AbstractDict, k::AbstractString)
     haskey(d, k) && return (d[k], true)
     return (nothing, false)
@@ -99,17 +99,14 @@ _fmtcall(name, path) = "val(" * repr(name) * ", [" * join(map(repr, path), ", ")
 """
     val(reg, name, path)
 
-Read a registered value by its key path. The path is a vector, which separates it from the value
-set name at the call site — the name selects a set from the registry, the path descends inside it.
+Read a registered value. `name` selects a value set and `path` lists the keys to follow inside it.
 
 ```julia
 val(reg, "descr", ["n_0"])
 val(reg, "props", ["Moderate", "decomposition", "das28_remission"])
 ```
 
-Throws `ArgumentError` naming the level that failed and the valid keys at that level. Routing
-value access through this function is what lets the value check find unknown paths statically and
-report registered leaves that prose never reads.
+Throws `ArgumentError` naming the level that failed and the valid keys at that level.
 """
 function val(reg::Registry, name::AbstractString, path::AbstractVector{<:AbstractString})
     haskey(reg.valindex, name) || throw(

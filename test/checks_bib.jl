@@ -29,7 +29,7 @@ end
     @test B.citations("[@smith_2020a:b]") == [("smith_2020a:b", 1)]
     # line numbers are tracked
     @test B.citations("a\nb [@x]") == [("x", 2)]
-    # a trailing sentence period is punctuation, not part of the key (matches pandoc)
+    # a trailing sentence period is not part of the key
     @test B.citations("Shown by @smith2020.") == [("smith2020", 1)]
 end
 
@@ -62,7 +62,7 @@ end
     s = B.report_string(rep)
     @test occursin("UNCITED", s) && occursin("MISSING", s)
 
-    # everything cited, nothing dangling
+    # every entry cited, no missing keys
     clean = B.analyze("@article{a,}\n@book{b,}", [src("[@a] and [@b]")])
     @test !B.has_findings(clean)
     @test occursin("2", B.report_string(clean))

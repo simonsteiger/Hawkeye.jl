@@ -1,15 +1,15 @@
 """
-Static cross-reference check for manuscript sources.
+Cross-reference check.
 
-Scans `.qmd` text for `ref("key")` calls and reports, per registry entry, whether it is referenced
-and whether first references run in ascending numeric order — plus unknown keys, unreadable `ref(`
-calls, hand-typed numbers, mergeable adjacent calls, and figure files that do not exist.
+Scans `.qmd` text for `ref("key")` calls. For each registry entry it reports whether the entry is
+referenced and whether first references appear in ascending numeric order. It also reports unknown
+keys, `ref(` calls it could not read, hand-typed numbers, adjacent calls that should be merged, and
+figure files that do not exist.
 
-Checks cross-references to tables and figures, not bibliographic citations; those are
-[`Hawkeye.Checks.Bib`](@ref).
+Bibliographic citations are checked by [`Hawkeye.Checks.Bib`](@ref).
 
-Run this before `quarto render`: an unknown key makes `ref` throw, which kills the render at the
-first bad call, so no in-document check would ever get to report the rest.
+Run this check before `quarto render`: an unknown key makes `ref` throw, which stops the render at
+the first bad call.
 """
 module Refs
 
@@ -19,11 +19,11 @@ using ...Hawkeye: Registry, AbstractFigure, bucket, number, entry_label
 using ..Checks: Source, Call, mask_comments, extract_calls, find_literals, find_adjacent
 
 """
-One registry entry's verdict.
+The result for one registry entry.
 
 `status` is one of `"ok"`, `"UNREFERENCED"`, `"PENDING (no body)"`, or
-`"OUT OF ORDER (before KEY @FILE:LINE)"`. `first` is `nothing` exactly when the entry is
-unreferenced.
+`"OUT OF ORDER (before KEY @FILE:LINE)"`. `first` is the file and line of the first reference, or
+`nothing` when the entry is unreferenced.
 """
 struct RefRow
     key::String
@@ -33,10 +33,10 @@ struct RefRow
 end
 
 """
-The full verdict on a set of sources.
+The result for a set of sources.
 
-`rows` covers every registry entry in registry order — which is document order, so gaps read
-visually. The other fields hold findings no row can express.
+`rows` has one row per registry entry, in registry order. The other fields list findings that do
+not belong to a single entry.
 """
 struct Report
     rows::Vector{RefRow}
@@ -52,10 +52,10 @@ end
 
 Check `.qmd` sources against the registry.
 
-Within each `(kind, location)` bucket the *first* reference to each entry should appear in
-ascending order of number, and every entry should be referenced at least once. Repeat references
-are ignored for ordering. An order violation is recorded against the earlier, higher-numbered
-entry, naming the entry it jumped ahead of.
+Within each `(kind, location)` bucket the first reference to each entry should appear in ascending
+order of number, and every entry should be referenced at least once. Later references to the same
+entry are ignored for ordering. When a higher-numbered entry is referenced first, its row is marked
+out of order and names the lower-numbered entry referenced after it.
 
 `figdir` is the directory that figure paths resolve against; pass `nothing` to skip the file
 existence check.
@@ -92,7 +92,7 @@ function analyze(
         push!(order, k)
     end
 
-    # key => (key it jumped ahead of, that key's location)
+    # key => (lower-numbered key first referenced after it, location of that reference)
     violation = Dict{String,Tuple{String,Tuple{String,Int}}}()
     for b in reg.bucket_order
         seq = [k for k in order if bucket(reg.index[k]) == b]
@@ -132,10 +132,8 @@ function analyze(
 end
 
 """
-Whether the report contains anything worth acting on. Drives the caller's exit code.
-
-Pending entries (`"PENDING (no body)"`) still appear in `rows` for visibility, but do not gate the
-exit code — see the `Registry` docstring.
+Whether the report contains findings. Rows with status `"ok"` or `"PENDING (no body)"` are not
+findings.
 """
 has_findings(r::Report) =
     any(row -> row.status != "ok" && row.status != "PENDING (no body)", r.rows) ||
@@ -151,9 +149,8 @@ _loc(t::Tuple{String,Int}) = "$(t[1]):$(t[2])"
 """
     report_string(report) -> String
 
-Render a report for a terminal: one table row per registry entry in registry order, then one block
-per non-empty finding, then a summary line. The table always appears — a clean run should still
-show what it checked.
+Format a report for a terminal: a table with one row per registry entry, then one block per kind
+of finding, then a summary line. The table is printed even when there are no findings.
 """
 function report_string(r::Report)
     io = IOBuffer()
@@ -164,7 +161,7 @@ function report_string(r::Report)
         [row.status for row in r.rows],
         [_loc(row.first) for row in r.rows],
     )
-    # alignment = :l, not :left — :left is accepted but drops cell padding.
+    # `alignment=:left` is accepted but drops cell padding; use `:l`.
     pretty_table(
         io,
         data;

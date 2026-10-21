@@ -1,13 +1,11 @@
 """
-Static check of registered value reads.
+Value check.
 
-Scans `.qmd` text for `val("set", ["key", ...])` calls and reports paths that do not resolve —
-which would abort a render at the first bad call — and registered leaves that no source ever reads,
-which answers which computed statistics never made it into the paper.
+Scans `.qmd` text for `val("set", ["key", ...])` calls. Reports paths that do not resolve, which
+would stop a render at the first bad call, and registered leaves that no source reads.
 
-This check is only possible because values are read through `val` rather than by indexing.
-Manuscript prose aliases intermediate dictionaries, and a static scanner cannot resolve an alias
-without evaluating the code that created it.
+Only calls with a literal name and a literal path can be checked. Other calls are reported as
+unparsed.
 """
 module Values
 
@@ -16,7 +14,7 @@ using PrettyTables
 using ...Hawkeye: Registry, leafpaths
 using ..Checks: Source, mask_comments, extract_vec_calls
 
-"One value set's coverage."
+"The number of leaves in one value set and how many of them are read."
 struct ValRow
     name::String
     leaves::Int
@@ -35,8 +33,8 @@ end
 
 Check every `val(...)` call in `sources` against the registry's value sets.
 
-A path counts as referenced only when it names a leaf. A path that stops on an interior node is
-reported as unknown: it would return a whole dictionary into prose, which is never intended.
+A path is referenced only when it names a leaf. A path that ends on a nested dictionary is reported
+as unknown, because it would insert the whole dictionary into the prose.
 """
 function analyze(reg::Registry, sources::AbstractVector{Source})
     read_paths = Tuple{Vector{String},String,Int}[]
@@ -51,7 +49,7 @@ function analyze(reg::Registry, sources::AbstractVector{Source})
         append!(unparsed, ((s.path, l) for l in up))
     end
 
-    # every registered leaf, name-prefixed
+    # every registered leaf path, starting with the set name
     all_leaves = Set{Vector{String}}()
     per_set = Dict{String,Vector{Vector{String}}}()
     for v in reg.values
@@ -81,7 +79,7 @@ end
 
 has_findings(r::Report) = !isempty(r.unknown) || !isempty(r.unused) || !isempty(r.unparsed)
 
-# The report prints the call as the author must write it: name, then a bracketed path.
+# Formats a path as the `val` call that reads it.
 _fmtcall(p::Vector{String}) =
     "val(" * repr(p[1]) * ", [" * join((repr(k) for k in p[2:end]), ", ") * "])"
 

@@ -1,18 +1,18 @@
 """
-Validate that quoted manuscript revisions in a reply-to-reviewers letter still exist in the
-rendered manuscript text, and that every reviewer comment has a recorded response.
+Reply-letter check.
+
+Checks that the manuscript passages quoted in a reply-to-reviewers letter appear in the rendered
+manuscript text, and that every reviewer comment has a revision.
 
 A reply letter is a `.qmd` of fenced divs. A `# Reviewer N` heading sets the reviewer number and
-resets the comment counter; each `.comment` div increments it; each `.revision` div is captured
-and tagged `R{reviewer}.{comment}`. A `status="..."` attribute on a comment div carries through to
-the overview, so the report doubles as a traffic-light view of where each point stands. Statuses
-are open strings — the check reports what it finds rather than validating a fixed list.
+restarts comment numbering. Each `.comment` div is one comment, and each `.revision` div gets the
+id `R{reviewer}.{comment}` of the comment before it. A `status="..."` attribute on a comment div is
+shown in the report; any string is accepted.
 
-Matching is line by line: a `.revision` div often quotes several separate manuscript passages, and a
-line only has to appear somewhere in the manuscript. Quote marks and inline markup are ignored on
-both sides, and `[...]` in a quote stands for an elided citation. A citation, footnote, or link the
-author did *not* elide still has to appear in the quote as it does in the manuscript; otherwise the
-strings genuinely differ and the line is reported missing.
+Each line of a `.revision` div is matched separately and may appear anywhere in the manuscript.
+Quote marks and inline markup are ignored on both sides. `[...]` in a quote stands for an omitted
+citation. A citation, footnote or link that is not replaced by `[...]` must appear in the quote as
+it does in the manuscript, or the line is reported missing.
 """
 module Revisions
 
@@ -35,9 +35,9 @@ const _SQUOTES = Set{Char}([Char(0x2018), Char(0x2019), Char(0x201A), Char(0x201
 const _MARKUP = Set{Char}(['*', '_', '`', '\\', '$', '^', '~'])
 
 """
-Collapse whitespace to single spaces; unify dashes; straighten curly apostrophes. Double quotes and
-inline markup characters are deleted: they carry no content, and deleting them from both the quoted
-revision and the manuscript keeps the two comparable regardless of quoting or emphasis. Trims ends.
+Collapse whitespace to single spaces, replace dash variants with `-` and curly apostrophes with
+`'`, delete double quotes and inline markup characters, and trim the ends. Applied to both the
+quoted revision and the manuscript, so that quoting and emphasis do not affect matching.
 """
 function normalize_text(s::AbstractString)
     buf = IOBuffer()
@@ -63,9 +63,9 @@ const _BLOCK_MARKER = r"^(?:>+\s*|[-+*]\s+|\d+\.\s+)"
 """
     line_needles(line) -> Vector{String}
 
-The normalized fragments one revision line must match. A leading block marker is dropped, `[...]`
-splits the line where the author elided a citation the manuscript still carries, and fragments with
-no letter or digit are discarded — they would match any manuscript.
+The normalised fragments of one revision line that must each appear in the manuscript. A leading
+block marker is dropped, the line is split at `[...]`, and fragments without a letter or digit are
+discarded.
 """
 function line_needles(line::AbstractString)
     body = normalize_text(replace(strip(line), _BLOCK_MARKER => ""))
@@ -82,7 +82,7 @@ struct Revision
     id::String              # "R{reviewer}.{comment}"
     section::String         # freeform pointer, "" if none
     status::String          # from the comment div it answers, "" if none
-    lines::Vector{String}   # raw div body; split into needles at match time
+    lines::Vector{String}   # div body lines, unprocessed
 end
 
 "A reviewer comment and whether a revision was recorded for it."
@@ -107,8 +107,8 @@ end
 """
     extract(qmd) -> (revisions, comments)
 
-Line-scan a reply `.qmd`, returning the captured revisions and every comment with whether a
-revision followed it.
+Parse a reply `.qmd` into its revisions and comments. Each comment records whether a revision
+follows it.
 """
 function extract(qmd::AbstractString)
     revisions = Revision[]
@@ -180,8 +180,8 @@ end
 """
     found(r::Result) -> Bool
 
-Whether every content-bearing line of the revision appears in the manuscript. A revision div with no
-content-bearing line is an authoring error and is never found.
+Whether every content-bearing line of the revision appears in the manuscript. A revision div
+without such a line is never found.
 """
 found(r::Result) = r.nlines > 0 && isempty(r.misses)
 
@@ -199,9 +199,9 @@ end
 """
     analyze(reply_qmd, manuscript_text) -> Report
 
-Normalize both sides, then test each revision line as a substring of the manuscript text. Lines with
-no content are skipped; a revision with no content-bearing line is reported as a miss. Comments with
-no recorded revision are returned as orphans.
+Normalise both texts, then test each revision line as a substring of the manuscript text. Lines
+with no content are skipped; a revision with no content-bearing line is reported as a miss.
+Comments without a revision are returned in `orphans`.
 """
 function analyze(reply_qmd::AbstractString, manuscript_text::AbstractString)
     revisions, comments = extract(reply_qmd)
@@ -219,7 +219,7 @@ function analyze(reply_qmd::AbstractString, manuscript_text::AbstractString)
     return Report(results, [c for c in comments if !c.responded])
 end
 
-"Read manuscript plain text from one or more paths; convert `.docx` via pandoc."
+"Read and join the text of the files at `paths`. `.docx` files are converted with pandoc."
 function manuscript_plaintext(paths::AbstractVector{<:AbstractString})
     texts = String[]
     for p in paths

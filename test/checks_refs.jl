@@ -21,13 +21,13 @@ Figures \$(ref("fig_descr")) and \$(ref("fig_high")).
     statuses = Dict(r.key => r.status for r in rep.rows)
     @test statuses["pop1"] == "ok"
     @test statuses["pop2"] == "PENDING (no body)"
-    # the entry table prints even on a clean run, so a passing check shows what it covered
+    # the entry table is printed even without findings
     @test occursin("pop1", R.report_string(rep))
 end
 
 @testset "pending does not gate has_findings" begin
-    # everything referenced and in order, pop2 pending; figdir=nothing disables the unrelated
-    # missing-figure check so only the pending status is in play
+    # everything referenced and in order, pop2 pending; figdir=nothing skips the missing-figure
+    # check
     rep = R.analyze(CHECKREG, [src(CLEAN)]; figdir=nothing)
     @test Dict(r.key => r.status for r in rep.rows)["pop2"] == "PENDING (no body)"
     @test !R.has_findings(rep)
@@ -39,7 +39,7 @@ end
     @test statuses["prop_rem"] == "UNREFERENCED"
     @test R.has_findings(rep)
 
-    # Table 2 referenced before Table 1: recorded against the earlier, higher-numbered entry
+    # Table 2 referenced before Table 1: the Table 2 row is marked out of order
     rep2 = R.analyze(
         CHECKREG,
         [src("\$(ref(\"prop_rem\")) then \$(ref(\"pop1\")).")];

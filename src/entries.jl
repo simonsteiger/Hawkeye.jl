@@ -1,10 +1,9 @@
 """
 A registered manuscript table or figure.
 
-The concrete type carries both axes of the registry — `kind` (table vs figure) and `location`
-(main vs supplementary) — so an entry announces its bucket in its first token. Fields differ by
-kind: tables carry a `footer`, figures carry a `path`. Query the axes with [`kind`](@ref) and
-[`location`](@ref) rather than matching on the type, so bucket logic stays generic.
+The four concrete types combine a kind (table or figure) with a location (main or supplementary).
+Tables have a `footer`, figures have a `path`. Use [`kind`](@ref) and [`location`](@ref) instead of
+checking the concrete type.
 """
 abstract type AbstractEntry end
 abstract type AbstractTable <: AbstractEntry end
@@ -12,7 +11,7 @@ abstract type AbstractFigure <: AbstractEntry end
 
 struct MainTable <: AbstractTable
     key::String
-    caption::String # body only, no "Table 1: " prefix; Registry rejects one that has it
+    caption::String # without a "Table 1: " prefix; `Registry` rejects captions that have one
     footer::String  # abbreviations, printed under the table
 end
 
@@ -40,22 +39,17 @@ kind(::AbstractFigure) = :figure
 location(::Union{MainTable,MainFigure}) = :main
 location(::Union{SuppTable,SuppFigure}) = :supp
 
-"The `(kind, location)` pair an entry is numbered and cross-referenced within."
+"The `(kind, location)` pair of an entry. Entries are numbered separately within each bucket."
 bucket(e::AbstractEntry) = (kind(e), location(e))
 
 """
     sanitize_join(parts...) -> String
 
-Join text fragments into one run of complete sentences: each part is terminated with a single
-period, parts are separated by a space, and empty parts are dropped.
+Join text fragments into sentences. Each part ends with a single period, parts are separated by a
+space, and empty parts are dropped. Use it to build a footer from constants that may or may not
+end in a period.
 
-Footers are assembled from constants that do not agree on whether they end in a period, so a
-plain `join` yields either a missing or a doubled sentence break. This normalises that without
-the caller tracking which constant ends how.
-
-Surrounding whitespace is stripped and warned about. Stripping keeps the output correct either
-way; the warning exists so the source string gets cleaned rather than silently patched on every
-call.
+Surrounding whitespace is stripped with a warning.
 
 ```julia
 sanitize_join(REM_FOOTER, SUPPRESSED_COUNT_NOTE, SUPPRESSED_NOTE)

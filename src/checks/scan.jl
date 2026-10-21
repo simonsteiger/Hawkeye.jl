@@ -15,12 +15,8 @@ end
 """
     mask_comments(text) -> String
 
-Blank out every `<!-- ... -->` comment, replacing each with as many newlines as it spanned.
-
-Line numbers downstream stay correct, which every finding depends on. Masking applies to call
-extraction as well as literal detection: commented text never reaches rendered output, so a
-number inside a comment misleads nobody and a commented-out `ref("x")` must not count as a
-reference to `x`.
+Replace every `<!-- ... -->` comment with as many newlines as it spans, so line numbers stay the
+same.
 """
 mask_comments(text::AbstractString) =
     replace(text, r"<!--.*?-->"s => m -> "\n"^count(==('\n'), m))
@@ -28,12 +24,8 @@ mask_comments(text::AbstractString) =
 """
     mask_code_blocks(text) -> String
 
-Blank out fenced code blocks, preserving line count.
-
-Used by the bibliography check only. A `.qmd` code block is full of Julia macros — `@model`,
-`@__DIR__` — that a citation scanner would otherwise read as `@key` citations. Inline code spans
-are deliberately left intact, because `ref` calls legitimately live in `` `{julia} ref("k")` ``
-spans.
+Blank out fenced code blocks, keeping the line count. Inline code spans are kept, because `ref`
+calls are written in `` `{julia} ref("k")` `` spans.
 """
 function mask_code_blocks(text::AbstractString)
     out = IOBuffer()
@@ -51,11 +43,11 @@ function mask_code_blocks(text::AbstractString)
     return String(take!(out))
 end
 
-# A full `f("a", "b")` call. Capture group 1 is the comma-separated quoted argument list.
+# Matches a complete `f("a", "b")` call. Group 1 is the quoted argument list.
 _call_regex(fname::AbstractString) =
     Regex("\\b" * fname * "\\(\\s*(\"[^\"]*\"(?:\\s*,\\s*\"[^\"]*\")*)\\s*\\)")
 
-# Any `f(` opening, parsed or not. Counted against the full regex to catch calls it misses.
+# Matches any `f(`, including calls that `_call_regex` cannot read.
 _open_regex(fname::AbstractString) = Regex("\\b" * fname * "\\(")
 
 # One double-quoted argument inside a captured argument list.
@@ -64,14 +56,12 @@ const _QUOTED = r"\"([^\"]*)\""
 """
     extract_calls(masked, fname) -> (calls, unparsed)
 
-Pull every `fname("a", ...)` call with literal string arguments out of masked `.qmd` text.
+Find every `fname("a", ...)` call with literal string arguments in masked `.qmd` text.
 
-`calls` is in source order, preserving order within a line — which matters, since two calls can
-share a line and their interleaving decides the reference order verdict.
+`calls` is in source order, including the order of calls on the same line.
 
-`unparsed` lists lines where a bare `fname(` outnumbers the calls the regex could read. A call
-split across lines, or written with a non-literal argument, lands here instead of silently
-vanishing and reading as an unreferenced entry.
+`unparsed` lists lines with more `fname(` than readable calls. This happens when a call spans
+several lines or has a non-literal argument.
 """
 function extract_calls(masked::AbstractString, fname::AbstractString)
     callre = _call_regex(fname)
@@ -91,8 +81,8 @@ function extract_calls(masked::AbstractString, fname::AbstractString)
     return calls, unparsed
 end
 
-# A full `f("name", ["a", "b"])` call. Group 1 is the name, group 2 the bracketed argument list,
-# which is `nothing` for an empty vector.
+# Matches a complete `f("name", ["a", "b"])` call. Group 1 is the name and group 2 the contents of
+# the brackets, which is `nothing` for an empty vector.
 _vec_call_regex(fname::AbstractString) = Regex(
     "\\b" *
     fname *
@@ -103,13 +93,11 @@ _vec_call_regex(fname::AbstractString) = Regex(
 """
     extract_vec_calls(masked, fname) -> (calls, unparsed)
 
-Pull every `fname("name", ["a", ...])` call with a literal name and a literal path vector out of
+Find every `fname("name", ["a", ...])` call with a literal name and a literal path vector in
 masked `.qmd` text. Each `Call.args` is the name followed by the path elements.
 
-`unparsed` lists lines where a bare `fname(` outnumbers the calls the regex could read. A call
-split across lines, or one whose path comes from a helper function, lands here. A helper's path
-cannot be resolved without evaluating it — the aliasing problem this check exists to prevent — so
-such calls are reported rather than silently dropped, which would read as unused leaves.
+`unparsed` lists lines with more `fname(` than readable calls. This happens when a call spans
+several lines or its path is not a literal vector.
 """
 function extract_vec_calls(masked::AbstractString, fname::AbstractString)
     callre = _vec_call_regex(fname)
@@ -142,9 +130,8 @@ const _LITERAL = r"(?:supplementary\s+)?(?:Table|Figure)s?\s+\d+"
 
 Find hand-typed table and figure numbers, as `(line, text)`.
 
-A number written directly in prose bypasses the registry and goes stale the moment entries are
-reordered. Since `ref` interpolates its result, source text never contains a registry-produced
-number — every hit is hand-typed.
+`ref` calls produce their numbers at render time, so any number in the source text was typed by
+hand.
 """
 function find_literals(masked::AbstractString)
     hits = Tuple{Int,String}[]
@@ -159,15 +146,13 @@ end
 """
     find_adjacent(masked, fname) -> Vector{Int}
 
-Lines carrying two `fname(` calls separated only by punctuation.
+Lines with two `fname(` calls separated only by punctuation.
 
-Such calls should be merged: each call groups only its own arguments, so
-`\$(ref("figA", "tabA")), \$(ref("tabB", "figB"))` renders four separate labels instead of
-grouping the two tables and the two figures. Merged into one call it renders correctly.
+Such calls should be merged, because each call groups only its own arguments:
+`\$(ref("figA", "tabA")), \$(ref("tabB", "figB"))` renders four separate labels, where one call
+would group the two tables and the two figures.
 
-The gap between two calls disqualifies the pair when it contains any alphanumeric character
-(real prose separates them, so they are deliberately distinct) or a semicolon (a deliberate
-clause break).
+A pair is not reported when the text between the calls contains a letter, a digit or a semicolon.
 """
 function find_adjacent(masked::AbstractString, fname::AbstractString)
     callre = _call_regex(fname)
@@ -175,7 +160,7 @@ function find_adjacent(masked::AbstractString, fname::AbstractString)
     for (i, line) in enumerate(eachsplit(masked, '\n'))
         ms = collect(eachmatch(callre, line))
         for j in 2:length(ms)
-            # byte arithmetic: RegexMatch.offset is a byte index, so ncodeunits, not length
+            # `RegexMatch.offset` is a byte index, so the match is measured with `ncodeunits`.
             from = ms[j-1].offset + ncodeunits(ms[j-1].match)
             to = prevind(line, ms[j].offset)
             gap = from > to ? "" : SubString(line, from, to)
