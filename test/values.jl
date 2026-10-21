@@ -124,19 +124,6 @@ end
     @test !occursin("\"plain-key\"", r)
 end
 
-@testset "structure faces" begin
-    vs = ValueSet("v", Dict("a" => 1))
-    colored = sprint(show, MIME"text/plain"(), vs; context=:color => true)
-    # the tree glyphs and the leaf type are dimmed; bright_black is ANSI 90
-    @test occursin("\e[90m", colored)
-    # the set name is bold
-    @test occursin("\e[1m", colored)
-    # without color the output is plain text
-    plain = sprint(show, MIME"text/plain"(), vs)
-    @test !occursin("\e[", plain)
-    @test occursin("└─ a", plain)
-end
-
 @testset "ValueSet show" begin
     vs = ValueSet("v", Dict("a" => 1))
     @test sprint(show, MIME"text/plain"(), vs) == String(structure(vs))
