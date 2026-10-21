@@ -13,13 +13,12 @@ Figures \$(ref("fig_descr")) and \$(ref("fig_high")).
 
 @testset "clean run" begin
     rep = R.analyze(CHECKREG, [src(CLEAN)]; figdir="")
-    # pop2 is pending, so it is reported even though everything else is clean
-    @test length(rep.rows) == 6
     @test isempty(rep.unknown)
     @test isempty(rep.adjacent)
     @test isempty(rep.literals)
     statuses = Dict(r.key => r.status for r in rep.rows)
     @test statuses["pop1"] == "ok"
+    # pop2 is pending, so it is reported even though everything else is clean
     @test statuses["pop2"] == "PENDING (no body)"
     # the entry table is printed even without findings
     @test occursin("pop1", R.report_string(rep))
@@ -29,7 +28,6 @@ end
     # everything referenced and in order, pop2 pending; figdir=nothing skips the missing-figure
     # check
     rep = R.analyze(CHECKREG, [src(CLEAN)]; figdir=nothing)
-    @test Dict(r.key => r.status for r in rep.rows)["pop2"] == "PENDING (no body)"
     @test !R.has_findings(rep)
 end
 

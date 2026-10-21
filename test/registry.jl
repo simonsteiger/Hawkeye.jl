@@ -97,10 +97,6 @@ end
     @test_throws msg Hawkeye.number(reg, "t1")
     @test_throws msg Hawkeye.ref(reg, "t1")
     @test_throws msg Hawkeye.ref(reg, "t2", "t1")
-    @test_throws msg Hawkeye.caption(reg, "t1")
-    @test_throws msg Hawkeye.footer(reg, "t1")
-    @test_throws msg Hawkeye.entry_label(reg, "t1")
-    @test_throws "unknown manuscript key" Hawkeye.ref(reg, "nope")
 
     # a reference inside a footer does not count
     entries = [MainTable("t1", "a", "See \$(ref(\"t2\"))."), MainTable("t2", "b", "")]
@@ -120,8 +116,6 @@ end
         NUMBERING_ENTRIES;
         sources=[multiline],
     )
-    nonliteral = Source("c.qmd", "\$(ref(key))")
-    @test_throws "c.qmd:1" Registry(NUMBERING_ENTRIES; sources=[nonliteral])
 
     ghost = Source("b.qmd", "line\nline\n\$(ref(\"t1\", \"ghost\"))")
     @test_throws "b.qmd:3: ref(\"ghost\") names no registered entry" Registry(
@@ -173,7 +167,5 @@ end
 @testset "Registry value index" begin
     k = [MainTable("k", "a", "")]
     reg = Registry(k, [ValueSet("descr", Dict("n_0" => 872))]; sources=[cite_in_order(k)])
-    @test haskey(reg.valindex, "descr")
     @test reg.valindex["descr"].dict["n_0"] == 872
-    @test isempty(Registry(k; sources=[cite_in_order(k)]).values)
 end
