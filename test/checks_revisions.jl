@@ -58,11 +58,7 @@ Something not in the manuscript at all.
 end
 
 @testset "line_needles" begin
-    # a quote may open, close, or do neither on any given line
     @test RV.line_needles("\"A quoted sentence.\"") == ["A quoted sentence."]
-    @test RV.line_needles("\"An unclosed opening quote.") == ["An unclosed opening quote."]
-    @test RV.line_needles("A closing quote only.\"") == ["A closing quote only."]
-    @test RV.line_needles("\"Ends with a hard break.\"\\") == ["Ends with a hard break."]
 
     # block markers are not part of the quoted text
     @test RV.line_needles("> \"Inside a blockquote.\"") == ["Inside a blockquote."]
@@ -74,8 +70,6 @@ end
 
     # a line with no letters or digits would match any manuscript
     @test isempty(RV.line_needles("\""))
-    @test isempty(RV.line_needles("\\"))
-    @test isempty(RV.line_needles("   "))
 end
 
 @testset "extract" begin

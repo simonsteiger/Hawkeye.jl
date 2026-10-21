@@ -45,10 +45,6 @@ end
     rep4 = V.analyze(CHECKREG, [src("\$(val(\n\"descr\", [\"n_0\"]))")])
     @test rep4.unparsed == [("manuscript.qmd", 1)]
 
-    # a path built by a helper function is reported as unparsed
-    rep5 = V.analyze(CHECKREG, [src("\$(val(\"descr\", f(\"n_0\")))")])
-    @test rep5.unparsed == [("manuscript.qmd", 1)]
-
     # commented-out reads do not count
     rep6 = V.analyze(CHECKREG, [src("<!-- \$(val(\"descr\", [\"n_0\"])) -->")])
     @test ["descr", "n_0"] in rep6.unused

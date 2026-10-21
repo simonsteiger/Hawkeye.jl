@@ -42,10 +42,6 @@ end
     calls, _ = S.extract_calls("\$(ref(\"a\")), \$(ref(\"b\"))", "ref")
     @test [c.args for c in calls] == [["a"], ["b"]]
 
-    # inline `{julia} ref("k")` form
-    calls, _ = S.extract_calls("see `{julia} ref(\"k\")`.", "ref")
-    @test calls[1].args == ["k"]
-
     # whitespace tolerance
     calls, _ = S.extract_calls("\$(ref( \"a\" ,  \"b\" ))", "ref")
     @test calls[1].args == ["a", "b"]

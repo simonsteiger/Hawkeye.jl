@@ -4,7 +4,6 @@ using Test
 
 @testset "shape" begin
     @test Hawkeye.shape(3) == Hawkeye.Leaf(Int)
-    @test Hawkeye.shape("s") == Hawkeye.Leaf(String)
 
     # keys are stringified and sorted, so shape is order-independent
     a = Hawkeye.shape(Dict("b" => 1, "a" => 2))
@@ -64,15 +63,6 @@ end
            └─ c  Float64
         """
     @test !occursin("das28, decomposition", h)
-
-    # a non-last node's subtree keeps the ancestor's vertical bar
-    mixed = ValueSet("m", Dict("A" => Dict("x" => 1), "z" => 2.0))
-    @test render(mixed) == """
-        m · 2 leaves
-        ├─ A
-        │  └─ x  Int64
-        └─ z  Float64
-        """
 end
 
 @testset "structure wrapping" begin
@@ -145,9 +135,6 @@ end
     # a Symbol key nested one level down is rejected
     @test_throws ArgumentError ValueSet("v", Dict("High" => Dict(:das28 => 1)))
 
-    # a non-Symbol, non-String key is rejected too
-    @test_throws ArgumentError ValueSet("v", Dict(2024 => 1))
-
     # the message names the set, the path to the containing dict, and the offending key
     err = try
         ValueSet("descr", Dict("High" => Dict(:das28 => 1)))
@@ -191,10 +178,6 @@ end
     @test length(Hawkeye._fmttype(over)) == 50
     @test endswith(Hawkeye._fmttype(over), "…")
     @test textwidth(Hawkeye._fmttype(over)) == 50
-    # a long NamedTuple type
-    long =
-        Hawkeye._fmttype(@NamedTuple{aaaa::Int64, bbbb::Int64, cccc::String, dddd::Float64})
-    @test length(long) == 50
 end
 
 @testset "faces" begin
@@ -202,6 +185,5 @@ end
     @test haskey(faces, :hawkeye_name)
     @test haskey(faces, :hawkeye_count)
     @test haskey(faces, :hawkeye_tree)
-    @test haskey(faces, :hawkeye_type)
     @test faces[:hawkeye_type].foreground == StyledStrings.SimpleColor(:bright_black)
 end

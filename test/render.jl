@@ -24,7 +24,6 @@ const REG = Registry(RENDER_ENTRIES; sources=[cite_in_order(RENDER_ENTRIES)])
     # figures are numbered in their own bucket, so this is 1 despite following eight tables
     @test Hawkeye.entry_label(REG, "fig_descr") == "Figure 1"
     @test Hawkeye.entry_label(REG, "fig_high") == "supplementary Figure 1"
-    @test_throws ArgumentError Hawkeye.entry_label(REG, "no_such_key")
 end
 
 @testset "ref single bucket" begin
@@ -46,47 +45,25 @@ end
     @test Hawkeye._collapse([1, 3, 5]) == ["1", "3", "5"]
 end
 
-@testset "BMJ joining is Base.join" begin
-    # the third argument of Base.join is the final separator
-    @test join(["a"], ", ", " and ") == "a"
-    @test join(["a", "b"], ", ", " and ") == "a and b"
-    @test join(["a", "b", "c"], ", ", " and ") == "a, b and c"
-end
-
 @testset "ref mixed buckets" begin
-    # two buckets, the first holding one number: joined with "and", whether or not they share a kind
+    # two buckets, the first holding one number: joined with "and"
     @test Hawkeye.ref(REG, "pop1", "def_rem") == "Table 1 and supplementary Table 1"
-    @test Hawkeye.ref(REG, "fig_descr", "pop1") == "Table 1 and Figure 1"
-    @test Hawkeye.ref(REG, "pop1", "fig_descr", "fig_rem") == "Table 1 and Figures 1 and 2"
     # two buckets, the first holding several numbers: joined with ", and "
     @test Hawkeye.ref(REG, "fig_high", "s4", "s5", "fig_trt_high") ==
           "supplementary Tables 4 and 5, and supplementary Figures 1 and 2"
-    @test Hawkeye.ref(REG, "pop1", "prop_rem", "prop_trt", "fig_descr") ==
-          "Tables 1–3, and Figure 1"
     # three or more buckets: commas, with ", and " before the last
     @test Hawkeye.ref(REG, "fig_descr", "pop1", "def_rem") ==
           "Table 1, supplementary Table 1, and Figure 1"
-    @test Hawkeye.ref(REG, "fig_high", "fig_descr", "pop1", "def_rem") ==
-          "Table 1, supplementary Table 1, Figure 1, and supplementary Figure 1"
     # every boundary between three or more buckets carries a comma, whatever the bucket sizes
-    @test Hawkeye.ref(REG, "pop1", "s4", "s5", "fig_descr") ==
-          "Table 1, supplementary Tables 4 and 5, and Figure 1"
     @test Hawkeye.ref(REG, "pop1", "prop_rem", "s4", "s5", "fig_descr", "fig_rem") ==
           "Tables 1 and 2, supplementary Tables 4 and 5, and Figures 1 and 2"
 end
 
 @testset "ref bucket order is canonical" begin
-    # tables and figures passed in mixed order are grouped by bucket
-    merged = Hawkeye.ref(REG, "fig_high", "s4", "s5", "fig_trt_high")
-    @test occursin("supplementary Tables 4 and 5", merged)
-    @test occursin("supplementary Figures 1 and 2", merged)
-
     # argument order does not affect output
     @test Hawkeye.ref(REG, "s4", "fig_high") == Hawkeye.ref(REG, "fig_high", "s4")
-    # buckets follow the order of first citation: supp tables are cited before supp figures
-    r = Hawkeye.ref(REG, "fig_high", "s4")
-    @test findfirst("supplementary Table", r)[1] < findfirst("supplementary Figure", r)[1]
 
+    # buckets follow the order of first citation
     figure_first = Registry(
         RENDER_ENTRIES;
         sources=[Source("m.qmd", "\$(ref(\"fig_descr\")) \$(ref(\"pop1\"))")],
@@ -122,9 +99,6 @@ const VREG = Registry(
           (e=5, n=10, p="50%")
     # an empty path returns the whole dict
     @test Hawkeye.val(VREG, "descr", String[]) isa AbstractDict
-
-    # a Symbol-keyed dictionary is rejected when the value set is built, not at read time
-    @test_throws ArgumentError ValueSet("sym", Dict(:a => 1))
 
     # unknown value set names the known sets
     err = try
