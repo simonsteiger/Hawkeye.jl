@@ -39,7 +39,9 @@ end
 Render one or more entry keys as an English cross-reference.
 
 Keys are grouped by `(kind, location)` bucket, and buckets appear in the registry's
-`bucket_order`, so argument order does not affect the result. Within a bucket, numbers are sorted
+`bucket_order` (the order in which the sources first cite each bucket), so argument order does not
+affect the result. Numbers come from the order of first citation in the registry's sources; a
+key that is registered but never cited throws `ArgumentError`. Within a bucket, numbers are sorted
 and deduplicated, three or more consecutive numbers become a range, and items are joined with
 commas and a final " and ". Two buckets are joined with " and " when the first holds a single
 number, and with ", and " when it holds several. Three or more buckets are joined with commas and

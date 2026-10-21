@@ -86,6 +86,29 @@ end
     @test occursin("supplementary.qmd", R.report_string(rep))
 end
 
+@testset "dropped entries" begin
+    text = "\$(ref(\"prop_rem\")) and \$(ref(\"def_rem\"))."
+    reg = Registry(CHECK_ENTRIES; sources=[src(text)], pending=["pop2"])
+    rep = R.analyze(reg, [src(text)]; figdir=nothing)
+    # one row per entry passed in, dropped ones included
+    @test [r.key for r in rep.rows] == [e.key for e in CHECK_ENTRIES]
+    rows = Dict(r.key => r for r in rep.rows)
+    @test rows["prop_rem"].status == "ok"
+    @test rows["prop_rem"].label == "Table 1"
+    @test rows["pop1"].status == "UNREFERENCED"
+    @test rows["pop1"].label == "—"
+    # an uncited pending entry is dropped like any other
+    @test rows["pop2"].status == "UNREFERENCED"
+    @test R.has_findings(rep)
+    @test occursin("first reference in the sources", R.report_string(rep))
+
+    # checked sources that cite an entry the registry dropped
+    rep2 = R.analyze(reg, [src("\$(ref(\"pop1\"))")]; figdir=nothing)
+    rows2 = Dict(r.key => r for r in rep2.rows)
+    @test startswith(rows2["pop1"].status, "UNNUMBERED")
+    @test isempty(rep2.unknown)
+end
+
 @testset "missing figure files" begin
     # figdir points nowhere, so both figure paths are missing
     rep = R.analyze(CHECKREG, [src(CLEAN)]; figdir="/nonexistent")

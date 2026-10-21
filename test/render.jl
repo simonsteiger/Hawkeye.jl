@@ -1,7 +1,7 @@
 using Hawkeye
 using Test
 
-const REG = Registry([
+const RENDER_ENTRIES = [
     MainTable("pop1", "Descriptives.", "F1"),
     MainTable("prop_rem", "Proportions.", "F2"),
     MainTable("prop_trt", "Prescriptions.", "F3"),
@@ -14,7 +14,9 @@ const REG = Registry([
     MainFigure("fig_rem", "Another figure.", "figs/rem.svg"),
     SuppFigure("fig_high", "Supp figure.", "figs/high.svg"),
     SuppFigure("fig_trt_high", "Supp figure 2.", "figs/trt.svg"),
-])
+]
+
+const REG = Registry(RENDER_ENTRIES; sources=[cite_in_order(RENDER_ENTRIES)])
 
 @testset "entry_label" begin
     @test Hawkeye.entry_label(REG, "pop1") == "Table 1"
@@ -81,17 +83,25 @@ end
 
     # argument order does not affect output
     @test Hawkeye.ref(REG, "s4", "fig_high") == Hawkeye.ref(REG, "fig_high", "s4")
-    # buckets follow the registry's order: supp tables precede supp figures
+    # buckets follow the order of first citation: supp tables are cited before supp figures
     r = Hawkeye.ref(REG, "fig_high", "s4")
     @test findfirst("supplementary Table", r)[1] < findfirst("supplementary Figure", r)[1]
+
+    figure_first = Registry(
+        RENDER_ENTRIES;
+        sources=[Source("m.qmd", "\$(ref(\"fig_descr\")) \$(ref(\"pop1\"))")],
+    )
+    @test Hawkeye.ref(figure_first, "pop1", "fig_descr") == "Figure 1 and Table 1"
 end
 
+const VREG_ENTRIES = [
+    MainTable("pop1", "Descriptives.", "F1"),
+    MainFigure("fig_descr", "A figure.", "figs/descr.svg"),
+    SuppFigure("fig_high", "Supp figure.", "figs/high.svg"),
+]
+
 const VREG = Registry(
-    [
-        MainTable("pop1", "Descriptives.", "F1"),
-        MainFigure("fig_descr", "A figure.", "figs/descr.svg"),
-        SuppFigure("fig_high", "Supp figure.", "figs/high.svg"),
-    ],
+    VREG_ENTRIES,
     [
         ValueSet("descr", Dict("n_0" => 872, "age_mean_0" => 55.2)),
         ValueSet(
@@ -102,7 +112,8 @@ const VREG = Registry(
                 ),
             ),
         ),
-    ],
+    ];
+    sources=[cite_in_order(VREG_ENTRIES)],
 )
 
 @testset "val" begin

@@ -1,4 +1,4 @@
-"One `.qmd` source under check. `path` is used only to label findings."
+"One `.qmd` source. `path` is used only to label findings and error messages."
 struct Source
     path::String
     text::String

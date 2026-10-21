@@ -9,7 +9,16 @@ module Checks
 
 using PrettyTables
 
-include("scan.jl")
+using ..Hawkeye:
+    Source,
+    Call,
+    mask_comments,
+    mask_code_blocks,
+    extract_calls,
+    extract_vec_calls,
+    find_literals,
+    find_adjacent
+
 include("refs.jl")
 include("values.jl")
 include("bib.jl")
